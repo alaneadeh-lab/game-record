@@ -28,8 +28,16 @@ class MongoDBService implements IStorageService {
       }
 
       const data: AppData = await response.json();
-      console.log('✅ Loaded app data from MongoDB:', data.sets.length, 'sets,', data.allPlayers.length, 'players');
-      return data;
+      // Ensure all players have tomatoes field (backward compatibility)
+      const playersWithTomatoes = data.allPlayers.map((p: any) => ({
+        ...p,
+        tomatoes: p.tomatoes ?? 0,
+      }));
+      console.log('✅ Loaded app data from MongoDB:', data.sets.length, 'sets,', playersWithTomatoes.length, 'players');
+      return {
+        ...data,
+        allPlayers: playersWithTomatoes,
+      };
     } catch (error) {
       console.error('❌ Error loading app data from MongoDB:', error);
       // Fallback to default data

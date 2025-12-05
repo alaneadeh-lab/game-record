@@ -7,6 +7,7 @@ export interface Player {
   goldMedals: number;
   silverMedals: number;
   bronzeMedals: number;
+  tomatoes: number; // 4th place finishes
 }
 
 export interface GameEntry {

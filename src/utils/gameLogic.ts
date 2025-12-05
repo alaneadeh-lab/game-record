@@ -19,12 +19,13 @@ export const calculateMedals = (playerScores: { playerId: string; score: number 
 };
 
 export function recalculateMedals(players: Player[], gameEntries: GameEntry[]): Player[] {
-  // Reset all medals first
+  // Reset all medals and tomatoes first
   const medalCounts = players.map(p => ({
     id: p.id,
     gold: 0,
     silver: 0,
-    bronze: 0
+    bronze: 0,
+    tomatoes: 0
   }));
 
   for (const game of gameEntries) {
@@ -43,18 +44,24 @@ export function recalculateMedals(players: Player[], gameEntries: GameEntry[]): 
       const b = medalCounts.find(m => m.id === sorted[2].playerId);
       if (b) b.bronze += 1;
     }
+    if (sorted[3]) {
+      // 4th place gets a tomato
+      const t = medalCounts.find(m => m.id === sorted[3].playerId);
+      if (t) t.tomatoes += 1;
+    }
   }
 
-  // Assign medals back to players and recalculate points based on medals
+  // Assign medals and tomatoes back to players and recalculate points based on medals
   return players.map(p => {
     const m = medalCounts.find(mc => mc.id === p.id);
     const updatedPlayer = {
       ...p,
       goldMedals: m?.gold || 0,
       silverMedals: m?.silver || 0,
-      bronzeMedals: m?.bronze || 0
+      bronzeMedals: m?.bronze || 0,
+      tomatoes: m?.tomatoes || 0
     };
-    // Update points based on medal conversion
+    // Update points based on medal conversion (tomatoes don't add to points)
     updatedPlayer.points = calculateMedalPoints(updatedPlayer);
     return updatedPlayer;
   });
@@ -134,10 +141,11 @@ export function recalculateMedalsForPlayerAcrossAllSets(
   // Find all sets this player belongs to
   const playerSets = allSets.filter(set => set.playerIds.includes(playerId));
 
-  // Reset medal counts
+  // Reset medal and tomato counts
   let totalGold = 0;
   let totalSilver = 0;
   let totalBronze = 0;
+  let totalTomatoes = 0;
 
   // Calculate medals for each set
   for (const set of playerSets) {
@@ -154,15 +162,17 @@ export function recalculateMedalsForPlayerAcrossAllSets(
       totalGold += playerMedals.goldMedals;
       totalSilver += playerMedals.silverMedals;
       totalBronze += playerMedals.bronzeMedals;
+      totalTomatoes += playerMedals.tomatoes || 0;
     }
   }
 
-  // Update player with aggregated medals
+  // Update player with aggregated medals and tomatoes
   const updatedPlayer = {
     ...player,
     goldMedals: totalGold,
     silverMedals: totalSilver,
     bronzeMedals: totalBronze,
+    tomatoes: totalTomatoes,
   };
   updatedPlayer.points = calculateMedalPoints(updatedPlayer);
 

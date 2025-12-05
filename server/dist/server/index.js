@@ -12,10 +12,32 @@ const COLLECTION_NAME = 'app-data';
 // URL-encode the MongoDB URI to handle special characters in password
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
 // Middleware
+// CORS: Allow both production frontend and localhost for development
 app.use(cors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) {
+            return callback(null, true);
+        }
+        // Always allow localhost for development
+        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+            return callback(null, true);
+        }
+        // Allow production frontend
+        const frontendUrl = process.env.FRONTEND_URL;
+        if (frontendUrl && origin === frontendUrl) {
+            return callback(null, true);
+        }
+        // If FRONTEND_URL is '*', allow all origins
+        if (frontendUrl === '*') {
+            return callback(null, true);
+        }
+        // Default: allow the request (permissive for development)
+        callback(null, true);
+    },
     methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
+    credentials: false,
 }));
 app.use(express.json({ limit: '50mb' })); // Support large Base64 images
 let db = null;
@@ -63,6 +85,17 @@ async function connectDB() {
 // Initialize connection
 connectDB().catch((error) => {
     console.error('❌ Failed to initialize MongoDB connection:', error);
+});
+// CORS test endpoint
+app.get('/cors-test', (req, res) => {
+    const origin = req.query.origin;
+    const allowedOrigins = process.env.FRONTEND_URL || '*';
+    res.json({
+        status: 'cors-test-ok',
+        yourRequestOrigin: req.headers.origin || null,
+        queryOrigin: origin || null,
+        allowedOrigins: allowedOrigins,
+    });
 });
 // Health check
 app.get('/health', async (req, res) => {
@@ -123,6 +156,44 @@ app.get('/api/app-data', async (req, res) => {
     catch (error) {
         console.error('❌ Error loading app data:', error);
         res.status(500).json({ error: 'Failed to load app data' });
+    }
+});
+// Upload/Import app data (POST endpoint for data migration)
+app.post('/api/app-data/upload', async (req, res) => {
+    try {
+        if (!db) {
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        const userId = req.body.userId || 'default';
+        const data = req.body.data;
+        if (!data || !data.allPlayers || !data.sets) {
+            return res.status(400).json({ error: 'Invalid data format. Expected: { allPlayers: [], sets: [] }' });
+        }
+        const collection = db.collection(COLLECTION_NAME);
+        // Upsert (update or insert)
+        await collection.updateOne({ userId }, {
+            $set: {
+                userId,
+                data,
+                updatedAt: new Date(),
+            }
+        }, { upsert: true });
+        const sizeInMB = (JSON.stringify(data).length / (1024 * 1024)).toFixed(2);
+        console.log(`✅ Uploaded app data for user: ${userId} (${sizeInMB}MB)`);
+        console.log(`   Players: ${data.allPlayers.length}, Sets: ${data.sets.length}`);
+        res.json({
+            success: true,
+            message: 'Data uploaded successfully',
+            stats: {
+                players: data.allPlayers.length,
+                sets: data.sets.length,
+                sizeMB: sizeInMB,
+            }
+        });
+    }
+    catch (error) {
+        console.error('❌ Error uploading app data:', error);
+        res.status(500).json({ error: 'Failed to upload app data' });
     }
 });
 // Save app data

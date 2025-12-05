@@ -8,10 +8,10 @@ Replace `YOUR_USERNAME` with your GitHub username:
 cd /Users/alaeadeh/game-record
 
 # Add remote (if not already added)
-git remote add origin https://github.com/YOUR_USERNAME/game-record.git
+git remote add origin https://github.com/alaneadeh-lab/game-record.git
 
 # Or if remote exists, update it:
-git remote set-url origin https://github.com/YOUR_USERNAME/game-record.git
+git remote set-url origin https://github.com/alaneadeh-lab/game-record.git
 
 # Push to GitHub
 git branch -M main
@@ -38,14 +38,14 @@ git remote -v
 
 Should show:
 ```
-origin  https://github.com/YOUR_USERNAME/game-record.git (fetch)
-origin  https://github.com/YOUR_USERNAME/game-record.git (push)
+origin  https://github.com/alaneadeh-lab/game-record.git (fetch)
+origin  https://github.com/alaneadeh-lab/game-record.git (push)
 ```
 
 ## Repository URL
 
 Your repository will be available at:
 ```
-https://github.com/YOUR_USERNAME/game-record
+https://github.com/alaneadeh-lab/game-record
 ```
 

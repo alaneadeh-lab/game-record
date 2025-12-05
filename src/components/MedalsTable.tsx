@@ -6,10 +6,6 @@ interface MedalsTableProps {
 }
 
 export const MedalsTable: React.FC<MedalsTableProps> = ({ players }) => {
-  const calculateTotalMedals = (player: Player) => {
-    return player.goldMedals + player.silverMedals + player.bronzeMedals;
-  };
-
   return (
     <div className="w-full max-w-full mx-auto">
       <div className="mb-3 sm:mb-4 text-center">
@@ -59,8 +55,13 @@ export const MedalsTable: React.FC<MedalsTableProps> = ({ players }) => {
                     {player.bronzeMedals}
                   </span>
                 </td>
-                <td className="px-3 sm:px-4 py-2 sm:py-3 text-center font-bold text-base sm:text-lg text-gray-700 min-w-[60px] max-[500px]:text-sm max-[500px]:px-2">
-                  {calculateTotalMedals(player)}
+                <td className="px-3 sm:px-4 py-2 sm:py-3 text-center min-w-[60px] max-[500px]:px-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-lg sm:text-xl max-[500px]:text-base">🍅</span>
+                    <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-300 to-red-500 text-red-900 font-bold text-sm sm:text-base shadow-md max-[500px]:w-6 max-[500px]:h-6 max-[500px]:text-xs">
+                      {player.tomatoes || 0}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-3 sm:px-4 py-2 sm:py-3 text-center font-bold text-sm sm:text-base text-red-600 hidden sm:table-cell min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
                   {player.fatts}

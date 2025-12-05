@@ -42,6 +42,7 @@ export const PlayerInventory: React.FC<PlayerInventoryProps> = ({
       goldMedals: 0,
       silverMedals: 0,
       bronzeMedals: 0,
+      tomatoes: 0,
     };
     console.log('➕ PlayerInventory: Calling onAddPlayer with:', newPlayer);
     onAddPlayer(newPlayer);
@@ -109,6 +110,7 @@ export const PlayerInventory: React.FC<PlayerInventoryProps> = ({
                     goldMedals: 0,
                     silverMedals: 0,
                     bronzeMedals: 0,
+                    tomatoes: 0,
                   }}
                   onSave={handleAddPlayer}
                   onCancel={() => setShowAddForm(false)}

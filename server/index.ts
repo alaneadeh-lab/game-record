@@ -17,36 +17,10 @@ const COLLECTION_NAME = 'app-data';
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
 
 // Middleware
-// CORS: Allow both production frontend and localhost for development
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // Always allow localhost for development
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return callback(null, true);
-    }
-    
-    // Allow production frontend
-    const frontendUrl = process.env.FRONTEND_URL;
-    if (frontendUrl && origin === frontendUrl) {
-      return callback(null, true);
-    }
-    
-    // If FRONTEND_URL is '*', allow all origins
-    if (frontendUrl === '*') {
-      return callback(null, true);
-    }
-    
-    // Default: allow the request (permissive for development)
-    callback(null, true);
-  },
+  origin: process.env.FRONTEND_URL || '*',
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
-  credentials: false,
 }));
 app.use(express.json({ limit: '50mb' })); // Support large Base64 images
 
