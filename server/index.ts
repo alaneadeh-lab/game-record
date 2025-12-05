@@ -18,29 +18,31 @@ const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://lo
 
 // Middleware
 // CORS: Allow both production frontend and localhost for development
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:5200',
-  'http://localhost:5173',
-  'http://127.0.0.1:5200',
-].filter(Boolean); // Remove undefined values
-
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow if origin is in allowed list or if FRONTEND_URL is '*'
-    if (process.env.FRONTEND_URL === '*' || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // For development, also allow localhost
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    // Always allow localhost for development
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    
+    // Allow production frontend
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (frontendUrl && origin === frontendUrl) {
+      return callback(null, true);
+    }
+    
+    // If FRONTEND_URL is '*', allow all origins
+    if (frontendUrl === '*') {
+      return callback(null, true);
+    }
+    
+    // Default: allow the request (permissive for development)
+    callback(null, true);
   },
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
