@@ -16,11 +16,26 @@ const COLLECTION_NAME = 'app-data';
 // URL-encode the MongoDB URI to handle special characters in password
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
 
+// CORS configuration: Allow production URL and all Vercel preview deployments
+const getAllowedOrigins = (): string | string[] => {
+  const productionUrl = process.env.FRONTEND_URL;
+  if (!productionUrl) {
+    return '*'; // Allow all if no FRONTEND_URL is set
+  }
+  
+  // Allow production URL and all Vercel preview deployments
+  return [
+    productionUrl,
+    /^https:\/\/.*\.vercel\.app$/, // All Vercel preview deployments
+  ];
+};
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: getAllowedOrigins(),
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
+  credentials: false,
 }));
 app.use(express.json({ limit: '50mb' })); // Support large Base64 images
 
