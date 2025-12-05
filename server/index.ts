@@ -17,17 +17,32 @@ const COLLECTION_NAME = 'app-data';
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
 
 // CORS configuration: Allow production URL and all Vercel preview deployments
-const getAllowedOrigins = (): string | string[] => {
+const getAllowedOrigins = (): string | string[] | ((origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => void) => {
   const productionUrl = process.env.FRONTEND_URL;
   if (!productionUrl) {
     return '*'; // Allow all if no FRONTEND_URL is set
   }
   
-  // Allow production URL and all Vercel preview deployments
-  return [
-    productionUrl,
-    /^https:\/\/.*\.vercel\.app$/, // All Vercel preview deployments
-  ];
+  // Return a function that checks if origin matches production URL or Vercel preview pattern
+  return (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Allow production URL
+    if (origin === productionUrl) {
+      return callback(null, true);
+    }
+    
+    // Allow all Vercel preview deployments (*.vercel.app)
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+    
+    // Deny all other origins
+    callback(new Error('Not allowed by CORS'));
+  };
 };
 
 // Middleware
