@@ -39,8 +39,14 @@ function App() {
         setIsLoading(true);
         const appData = await storageService.loadAppData();
         
+        console.log('📦 Loaded data:', {
+          players: appData.allPlayers.length,
+          sets: appData.sets.length,
+        });
+        
         // If no players exist, create 4 default players
         if (appData.allPlayers.length === 0) {
+          console.log('🆕 No players found, creating 4 default players...');
           const defaultPlayers: Player[] = [
             { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
             { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
@@ -48,21 +54,33 @@ function App() {
             { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
           ];
           setAllPlayers(defaultPlayers);
-          // Save default players to storage
-          await storageService.saveAppData({
-            allPlayers: defaultPlayers,
-            sets: appData.sets,
-          });
+          // Save default players to storage immediately
+          try {
+            await storageService.saveAppData({
+              allPlayers: defaultPlayers,
+              sets: appData.sets,
+            });
+            console.log('✅ Default players saved to storage');
+          } catch (saveError) {
+            console.error('❌ Failed to save default players:', saveError);
+            // Still set players in state even if save fails
+          }
         } else {
           setAllPlayers(appData.allPlayers);
         }
         
         setPlayerSets(appData.sets);
       } catch (error) {
-        console.error('Failed to load data:', error);
-        const appData = await storageService.loadAppData();
-        setAllPlayers(appData.allPlayers);
-        setPlayerSets(appData.sets);
+        console.error('❌ Failed to load data:', error);
+        // On error, create default players as fallback
+        const defaultPlayers: Player[] = [
+          { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+          { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+          { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+          { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+        ];
+        setAllPlayers(defaultPlayers);
+        setPlayerSets([]);
       } finally {
         setIsLoading(false);
       }
