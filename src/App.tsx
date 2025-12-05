@@ -38,7 +38,25 @@ function App() {
       try {
         setIsLoading(true);
         const appData = await storageService.loadAppData();
-        setAllPlayers(appData.allPlayers);
+        
+        // If no players exist, create 4 default players
+        if (appData.allPlayers.length === 0) {
+          const defaultPlayers: Player[] = [
+            { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+            { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+            { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+            { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0 },
+          ];
+          setAllPlayers(defaultPlayers);
+          // Save default players to storage
+          await storageService.saveAppData({
+            allPlayers: defaultPlayers,
+            sets: appData.sets,
+          });
+        } else {
+          setAllPlayers(appData.allPlayers);
+        }
+        
         setPlayerSets(appData.sets);
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -216,12 +234,22 @@ function App() {
       <div className="min-h-screen flex items-center justify-center bg-casino-felt">
         <div className="text-center">
           <div className="text-2xl font-bold text-white mb-2">No Player Set</div>
+          <div className="text-white opacity-75 mb-4">
+            {allPlayers.length >= 4 
+              ? 'Click below to create your first player set'
+              : `${allPlayers.length} players added. You need at least 4 players to create a set.`}
+          </div>
           <button
             onClick={handleCreateSet}
             className="button-3d bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d"
           >
-            Create New Set
+            {allPlayers.length >= 4 ? 'Create New Set' : 'Add Players'}
           </button>
+          {allPlayers.length > 0 && allPlayers.length < 4 && (
+            <div className="mt-4 text-white opacity-75 text-sm">
+              Default players have been created. You can edit their names in the Player Inventory.
+            </div>
+          )}
         </div>
       </div>
     );
