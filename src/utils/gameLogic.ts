@@ -44,10 +44,13 @@ export function recalculateMedals(players: Player[], gameEntries: GameEntry[]): 
       const b = medalCounts.find(m => m.id === sorted[2].playerId);
       if (b) b.bronze += 1;
     }
-    if (sorted[3]) {
-      // 4th place gets a tomato
+    if (sorted.length >= 4 && sorted[3]) {
+      // 4th place gets a tomato (only if there are at least 4 players)
       const t = medalCounts.find(m => m.id === sorted[3].playerId);
-      if (t) t.tomatoes += 1;
+      if (t) {
+        t.tomatoes += 1;
+        console.log(`🍅 Tomato awarded to player ${sorted[3].playerId} for 4th place (score: ${sorted[3].score})`);
+      }
     }
   }
 
