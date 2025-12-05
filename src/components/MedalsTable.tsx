@@ -29,7 +29,12 @@ export const MedalsTable: React.FC<MedalsTableProps> = ({ players }) => {
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
                 <span className="text-lg sm:text-xl max-[500px]:text-base">🥉</span>
               </th>
-              <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">Tot</th>
+              <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-lg sm:text-xl max-[500px]:text-base">🍅</span>
+                  <span className="text-xs max-[500px]:text-[10px]">4th</span>
+                </div>
+              </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 hidden sm:table-cell min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">Fatts</th>
             </tr>
           </thead>

@@ -24,9 +24,17 @@ class LocalStorageService implements IStorageService {
         // Check if this is the new format (has allPlayers and sets)
         if (parsed.allPlayers && Array.isArray(parsed.allPlayers) && parsed.sets && Array.isArray(parsed.sets)) {
           console.log('✅ Loaded app data from localStorage:', parsed.sets.length, 'sets,', parsed.allPlayers.length, 'players');
+          // Ensure all players have tomatoes field (backward compatibility)
+          const playersWithTomatoes = parsed.allPlayers.map((p: any) => ({
+            ...p,
+            tomatoes: p.tomatoes ?? 0,
+          }));
           // Validate that we have actual data, not empty arrays
-          if (parsed.allPlayers.length > 0 || parsed.sets.length > 0) {
-            return parsed;
+          if (playersWithTomatoes.length > 0 || parsed.sets.length > 0) {
+            return {
+              ...parsed,
+              allPlayers: playersWithTomatoes,
+            };
           }
         }
         
