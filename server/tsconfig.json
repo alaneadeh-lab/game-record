@@ -16,7 +16,7 @@
       "../src/types": ["../src/types"]
     }
   },
-  "include": ["**/*.ts", "../src/types.ts"],
+  "include": ["*.ts", "**/*.ts", "../src/types.ts"],
   "exclude": ["node_modules", "dist"]
 }
 
