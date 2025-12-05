@@ -6,7 +6,6 @@ import { PinModal } from './components/PinModal';
 import { SetManagerModal } from './components/SetManagerModal';
 import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
-import { Layers } from 'lucide-react';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
 import type { PlayerSet, Player, AppData } from './types';
 
@@ -318,15 +317,19 @@ function App() {
       )}
 
       {/* Admin Panel */}
-      {showAdmin && !showPlayerInventory && (
+      {showAdmin && !showPlayerInventory && currentSet && (
         <AdminPanel
           playerSet={currentSet}
           allPlayers={allPlayers}
+          playerSets={playerSets}
+          currentSetIndex={currentSetIndex}
           onUpdateSet={handleUpdateSet}
           onUpdateAllPlayers={handleUpdateAllPlayers}
           onClose={() => setShowAdmin(false)}
           onAddNewSet={handleCreateSet}
           onOpenPlayerInventory={() => setShowPlayerInventory(true)}
+          onSetChange={handleSetChange}
+          onDeleteSet={handleDeleteCurrentSet}
         />
       )}
 
@@ -350,20 +353,13 @@ function App() {
               🎴 Hand Game Tracker
             </h1>
           </div>
-          <PlayersView players={resolvePlayers(currentSet.playerIds)} />
+          <PlayersView 
+            players={resolvePlayers(currentSet.playerIds)} 
+            gameEntries={currentSet.gameEntries}
+          />
         </div>
       )}
 
-      {/* Set Manager FAB */}
-      {!showAdmin && !showPlayerInventory && (
-        <button
-          onClick={() => setShowSetMenu(true)}
-          className="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-3d bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center button-3d hover:shadow-3d-hover z-40"
-          aria-label="Manage sets"
-        >
-          <Layers className="w-7 h-7" />
-        </button>
-      )}
 
       {/* Admin Button */}
       <button

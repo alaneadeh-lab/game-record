@@ -1,33 +1,43 @@
 import React, { useState } from 'react';
-import { X, Plus, Edit2, Trash2, Users, Calendar } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Users, Calendar, Layers } from 'lucide-react';
 import { GameEntryForm } from './GameEntryForm';
 import { PlayerSetSelector } from './PlayerSetSelector';
+import { SetManagerModal } from './SetManagerModal';
 import type { Player, GameEntry, PlayerSet } from '../types';
 import { applyGameEntry, removeGameEntry, recalculateMedals } from '../utils/gameLogic';
 
 interface AdminPanelProps {
   playerSet: PlayerSet;
   allPlayers: Player[];
+  playerSets: PlayerSet[];
+  currentSetIndex: number;
   onUpdateSet: (updatedSet: PlayerSet) => void;
   onUpdateAllPlayers: (updater: (prev: Player[]) => Player[]) => void;
   onClose: () => void;
   onAddNewSet?: () => void;
   onOpenPlayerInventory: () => void;
+  onSetChange: (index: number) => void;
+  onDeleteSet: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   playerSet,
   allPlayers,
+  playerSets,
+  currentSetIndex,
   onUpdateSet,
   onUpdateAllPlayers,
   onClose,
   onAddNewSet,
   onOpenPlayerInventory,
+  onSetChange,
+  onDeleteSet,
 }) => {
   const [activeTab, setActiveTab] = useState<'games' | 'players'>('games');
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
   const [showGameForm, setShowGameForm] = useState(false);
   const [showPlayerSelector, setShowPlayerSelector] = useState(false);
+  const [showSetManager, setShowSetManager] = useState(false);
 
   // Resolve players from IDs
   const setPlayers = playerSet.playerIds
@@ -163,6 +173,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 🎰 Admin - {playerSet.name}
               </h1>
               <div className="flex gap-2">
+                <button
+                  onClick={() => setShowSetManager(true)}
+                  className="button-3d bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-2 px-4 rounded-xl shadow-3d hover:shadow-3d-hover"
+                >
+                  <Layers className="w-4 h-4 inline mr-1" />
+                  Manage Sets
+                </button>
                 {onAddNewSet && (
                   <button
                     onClick={onAddNewSet}
