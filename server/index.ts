@@ -17,16 +17,17 @@ const COLLECTION_NAME = 'app-data';
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
 
 // CORS configuration: Allow production URL and all Vercel preview deployments
-const getAllowedOrigins = (): string | string[] | ((origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => void) => {
-  const productionUrl = process.env.FRONTEND_URL;
-  if (!productionUrl) {
-    return '*'; // Allow all if no FRONTEND_URL is set
-  }
-  
-  // Return a function that checks if origin matches production URL or Vercel preview pattern
-  return (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    const productionUrl = process.env.FRONTEND_URL;
+    
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
     if (!origin) {
+      return callback(null, true);
+    }
+    
+    // If no FRONTEND_URL is set, allow all origins (development mode)
+    if (!productionUrl) {
       return callback(null, true);
     }
     
@@ -36,22 +37,26 @@ const getAllowedOrigins = (): string | string[] | ((origin: string | undefined, 
     }
     
     // Allow all Vercel preview deployments (*.vercel.app)
-    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+    // This matches patterns like:
+    // - https://game-record-jet.vercel.app (production)
+    // - https://game-record-abc123.vercel.app (preview)
+    // - https://game-record-ap2a-n4u6w5bot-alaneadeh-labs-projects.vercel.app (preview)
+    if (/^https:\/\/[^/]+\.vercel\.app$/.test(origin)) {
+      console.log(`✅ CORS: Allowing Vercel origin: ${origin}`);
       return callback(null, true);
     }
     
     // Deny all other origins
-    callback(new Error('Not allowed by CORS'));
-  };
-};
-
-// Middleware
-app.use(cors({
-  origin: getAllowedOrigins(),
+    console.log(`❌ CORS: Blocked origin: ${origin} (expected: ${productionUrl} or *.vercel.app)`);
+    callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
+  },
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
   credentials: false,
-}));
+};
+
+// Middleware
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' })); // Support large Base64 images
 
 let db: any = null;
