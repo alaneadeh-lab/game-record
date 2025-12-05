@@ -30,10 +30,7 @@ export const MedalsTable: React.FC<MedalsTableProps> = ({ players }) => {
                 <span className="text-lg sm:text-xl max-[500px]:text-base">🥉</span>
               </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-lg sm:text-xl max-[500px]:text-base">🍅</span>
-                  <span className="text-xs max-[500px]:text-[10px]">4th</span>
-                </div>
+                <span className="text-lg sm:text-xl max-[500px]:text-base">🍅</span>
               </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 hidden sm:table-cell min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">Fatts</th>
             </tr>
@@ -61,12 +58,9 @@ export const MedalsTable: React.FC<MedalsTableProps> = ({ players }) => {
                   </span>
                 </td>
                 <td className="px-3 sm:px-4 py-2 sm:py-3 text-center min-w-[60px] max-[500px]:px-2">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-lg sm:text-xl max-[500px]:text-base">🍅</span>
-                    <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-300 to-red-500 text-red-900 font-bold text-sm sm:text-base shadow-md max-[500px]:w-6 max-[500px]:h-6 max-[500px]:text-xs">
-                      {player.tomatoes || 0}
-                    </span>
-                  </div>
+                  <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-300 to-red-500 text-red-900 font-bold text-sm sm:text-base shadow-md max-[500px]:w-6 max-[500px]:h-6 max-[500px]:text-xs">
+                    {player.tomatoes || 0}
+                  </span>
                 </td>
                 <td className="px-3 sm:px-4 py-2 sm:py-3 text-center font-bold text-sm sm:text-base text-red-600 hidden sm:table-cell min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
                   {player.fatts}
