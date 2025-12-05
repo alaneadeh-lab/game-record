@@ -154,8 +154,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         />
       )}
 
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm pointer-events-auto">
-        <div className="relative z-50 min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm pointer-events-auto overflow-y-auto">
+      <div className="relative z-50 min-h-full bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 p-4">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex justify-between items-center mb-6 pt-4">
