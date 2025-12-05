@@ -78,6 +78,18 @@ connectDB().catch((error) => {
   console.error('❌ Failed to initialize MongoDB connection:', error);
 });
 
+// CORS test endpoint
+app.get('/cors-test', (req, res) => {
+  const origin = req.query.origin;
+  const allowedOrigins = process.env.FRONTEND_URL || '*';
+  res.json({
+    status: 'cors-test-ok',
+    yourRequestOrigin: req.headers.origin || null,
+    queryOrigin: origin || null,
+    allowedOrigins: allowedOrigins,
+  });
+});
+
 // Health check
 app.get('/health', async (req, res) => {
   // Check if we have an active connection
