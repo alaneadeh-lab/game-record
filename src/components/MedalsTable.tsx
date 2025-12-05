@@ -21,16 +21,16 @@ export const MedalsTable: React.FC<MedalsTableProps> = ({ players }) => {
             <tr className="border-b-2 border-gray-300">
               <th className="text-left py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[80px] max-[500px]:text-xs max-[500px]:px-2">Player</th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
-                <span className="text-lg sm:text-xl max-[500px]:text-base">🥇</span>
+                <span className="text-2xl sm:text-3xl max-[500px]:text-xl">🥇</span>
               </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
-                <span className="text-lg sm:text-xl max-[500px]:text-base">🥈</span>
+                <span className="text-2xl sm:text-3xl max-[500px]:text-xl">🥈</span>
               </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
-                <span className="text-lg sm:text-xl max-[500px]:text-base">🥉</span>
+                <span className="text-2xl sm:text-3xl max-[500px]:text-xl">🥉</span>
               </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">
-                <span className="text-lg sm:text-xl max-[500px]:text-base">🍅</span>
+                <span className="text-2xl sm:text-3xl max-[500px]:text-xl">🍅</span>
               </th>
               <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-sm sm:text-base font-bold text-gray-700 hidden sm:table-cell min-w-[60px] max-[500px]:text-xs max-[500px]:px-2">Fatts</th>
             </tr>
