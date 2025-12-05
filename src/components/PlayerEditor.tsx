@@ -94,13 +94,17 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({
     e.preventDefault();
 
     const trimmedName = name.trim();
-    if (!trimmedName) return;
+    if (!trimmedName) {
+      alert('Please enter a player name');
+      return;
+    }
 
     const updates: Partial<Player> = {
       name: trimmedName,
       photo: photoPreview || player.photo || undefined,
     };
 
+    console.log('💾 Saving player:', updates);
     onSave(updates);
   };
 

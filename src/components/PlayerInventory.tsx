@@ -29,6 +29,7 @@ export const PlayerInventory: React.FC<PlayerInventoryProps> = ({
   };
 
   const handleAddPlayer = (updates: Partial<Player>) => {
+    console.log('📝 PlayerInventory: handleAddPlayer called with:', updates);
     if (!updates.name || !updates.name.trim()) {
       alert('Please enter a player name');
       return;
@@ -42,6 +43,7 @@ export const PlayerInventory: React.FC<PlayerInventoryProps> = ({
       silverMedals: 0,
       bronzeMedals: 0,
     };
+    console.log('➕ PlayerInventory: Calling onAddPlayer with:', newPlayer);
     onAddPlayer(newPlayer);
     setShowAddForm(false);
   };
