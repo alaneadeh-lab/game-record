@@ -154,6 +154,54 @@ app.get('/api/app-data', async (req, res) => {
   }
 });
 
+// Upload/Import app data (POST endpoint for data migration)
+app.post('/api/app-data/upload', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const userId = (req.body.userId as string) || 'default';
+    const data: AppData = req.body.data;
+
+    if (!data || !data.allPlayers || !data.sets) {
+      return res.status(400).json({ error: 'Invalid data format. Expected: { allPlayers: [], sets: [] }' });
+    }
+
+    const collection = db.collection(COLLECTION_NAME);
+    
+    // Upsert (update or insert)
+    await collection.updateOne(
+      { userId },
+      { 
+        $set: { 
+          userId,
+          data,
+          updatedAt: new Date(),
+        } 
+      },
+      { upsert: true }
+    );
+
+    const sizeInMB = (JSON.stringify(data).length / (1024 * 1024)).toFixed(2);
+    console.log(`✅ Uploaded app data for user: ${userId} (${sizeInMB}MB)`);
+    console.log(`   Players: ${data.allPlayers.length}, Sets: ${data.sets.length}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Data uploaded successfully',
+      stats: {
+        players: data.allPlayers.length,
+        sets: data.sets.length,
+        sizeMB: sizeInMB,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error uploading app data:', error);
+    res.status(500).json({ error: 'Failed to upload app data' });
+  }
+});
+
 // Save app data
 app.put('/api/app-data', async (req, res) => {
   try {
