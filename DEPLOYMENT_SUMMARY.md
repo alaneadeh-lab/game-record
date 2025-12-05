@@ -42,46 +42,59 @@
 
 ## 📋 Next Steps for Deployment
 
-### Backend Deployment (Render/Railway)
+### Quick Start
 
-1. **Push code to GitHub** (if not already)
+**See `DEPLOYMENT_CHECKLIST.md` for complete step-by-step instructions.**
 
-2. **Deploy to Render:**
-   - Go to [Render](https://render.com)
-   - New → Web Service
-   - Connect GitHub repo
-   - Root Directory: `server`
-   - Build: `npm install && npm run build`
-   - Start: `npm start`
-   - Environment Variables:
-     - `MONGODB_URI` = (your connection string)
-     - `DB_NAME` = `game-record`
-     - `PORT` = `5200`
-     - `FRONTEND_URL` = (your Vercel URL)
+### Backend Deployment (Render)
 
-3. **Note your backend URL** (e.g., `https://your-api.onrender.com`)
+**Exact Render Settings:**
+
+- **Root Directory:** `server`
+- **Build Command:** `npm install && npm run build`
+- **Start Command:** `npm start`
+- **Environment Variables:**
+  - `MONGODB_URI` = `mongodb+srv://alaneadeh_db_user:2Xl1dIbKSwPQAAML@handgame-cluster.r7vrrl.mongodb.net/game-record?retryWrites=true&w=majority&appName=handgame-cluster`
+  - `DB_NAME` = `game-record`
+  - `PORT` = `5200`
+  - `FRONTEND_URL` = `https://your-frontend.vercel.app` (set after Vercel deploy)
 
 ### Frontend Deployment (Vercel)
 
-1. **Deploy to Vercel:**
-   - Go to [Vercel](https://vercel.com)
-   - Import GitHub repository
-   - Framework: Vite
-   - Build: `npm run build`
-   - Output: `dist`
-   - Environment Variables:
-     - `VITE_API_URL` = `https://your-api.onrender.com/api`
-     - `VITE_USER_ID` = `default` (optional)
+**Vercel Settings:**
 
-2. **Update Backend CORS:**
-   - Update `FRONTEND_URL` in backend to your Vercel URL
-   - Redeploy backend
+- **Framework Preset:** `Vite` (auto-detected)
+- **Root Directory:** `./` (project root)
+- **Build Command:** `npm run build` (auto-detected)
+- **Output Directory:** `dist` (auto-detected)
+- **Environment Variables:**
+  - `VITE_API_URL` = `https://your-backend.onrender.com/api`
+  - `VITE_USER_ID` = `default` (optional)
 
-3. **Verify:**
-   ```bash
-   export VITE_API_URL=https://your-api.onrender.com/api
-   npm run verify:deployment
-   ```
+**Setting Environment Variables in Vercel:**
+
+1. Go to Vercel Dashboard → Your Project → Settings
+2. Click "Environment Variables"
+3. Add each variable:
+   - Key: `VITE_API_URL`
+   - Value: `https://your-backend.onrender.com/api`
+   - Environment: `Production`, `Preview`, `Development` (select all)
+4. Click "Save"
+5. Redeploy (Vercel will auto-redeploy after saving)
+
+### Update Backend CORS
+
+After Vercel deployment:
+1. Go to Render Dashboard → Your Service → Environment
+2. Update `FRONTEND_URL` to your Vercel URL
+3. Render will auto-redeploy
+
+### Verify Deployment
+
+```bash
+export VITE_API_URL=https://your-backend.onrender.com/api
+npm run verify:deployment
+```
 
 ## 🔧 Local Development
 
