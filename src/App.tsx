@@ -329,7 +329,7 @@ function App() {
           onAddNewSet={handleCreateSet}
           onOpenPlayerInventory={() => setShowPlayerInventory(true)}
           onSetChange={handleSetChange}
-          onDeleteSet={handleDeleteCurrentSet}
+          onDeleteSet={handleDeleteSet}
         />
       )}
 
