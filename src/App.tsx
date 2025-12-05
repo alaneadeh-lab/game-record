@@ -140,7 +140,7 @@ function App() {
 
   const handleCreateSet = useCallback(() => {
     if (allPlayers.length < 4) {
-      alert('Please add at least 4 players in the Player Inventory first.');
+      // If less than 4 players, open Player Inventory to add more
       setShowPlayerInventory(true);
       return;
     }
