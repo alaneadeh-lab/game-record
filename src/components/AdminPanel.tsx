@@ -386,6 +386,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Set Manager Modal */}
+      {showSetManager && (
+        <SetManagerModal
+          playerSets={playerSets}
+          currentSetIndex={currentSetIndex}
+          onSetChange={onSetChange}
+          onCreateSet={() => {
+            setShowSetManager(false);
+            if (onAddNewSet) onAddNewSet();
+          }}
+          onDeleteSet={() => {
+            setShowSetManager(false);
+            onDeleteSet();
+          }}
+          onClose={() => setShowSetManager(false)}
+        />
+      )}
     </>
   );
 };
