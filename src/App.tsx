@@ -542,6 +542,26 @@ function App() {
               transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
+            {/* Action Buttons - Fixed at bottom */}
+            <div className="fixed bottom-4 right-4 flex gap-3 z-50">
+              {/* Add Game Button */}
+              <button
+                onClick={handleAddGameClick}
+                className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                aria-label="Add game"
+              >
+                <Plus className="w-7 h-7" />
+              </button>
+              
+              {/* Admin Button */}
+              <button
+                onClick={handleAdminClick}
+                className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                aria-label="Open admin"
+              >
+                <Settings className="w-7 h-7" />
+              </button>
+            </div>
             {/* Render all sets in a horizontal row */}
             {playerSets.map((set, index) => {
               const offset = (index - currentSetIndex) * 100;
@@ -554,32 +574,11 @@ function App() {
                     transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
-                  <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto">
+                  <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto pb-24">
                     <PlayersView 
                       players={resolvePlayers(set.playerIds)} 
                       gameEntries={set.gameEntries}
                     />
-                    
-                    {/* Action Buttons - At the end of content (scrolls with content) */}
-                    <div className="flex gap-3 justify-end pr-4 pb-4 pt-2">
-                      {/* Add Game Button */}
-                      <button
-                        onClick={handleAddGameClick}
-                        className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-                        aria-label="Add game"
-                      >
-                        <Plus className="w-7 h-7" />
-                      </button>
-                      
-                      {/* Admin Button */}
-                      <button
-                        onClick={handleAdminClick}
-                        className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-                        aria-label="Open admin"
-                      >
-                        <Settings className="w-7 h-7" />
-                      </button>
-                    </div>
                   </div>
                 </div>
               );
