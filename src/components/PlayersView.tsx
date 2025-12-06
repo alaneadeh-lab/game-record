@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { PlayerCard } from './PlayerCard';
 import { SummaryRow } from './SummaryRow';
 import { MedalsTable } from './MedalsTable';
@@ -9,57 +9,18 @@ import type { Player, GameEntry } from '../types';
 interface PlayersViewProps {
   players: Player[];
   gameEntries?: GameEntry[];
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
 }
 
 export const PlayersView: React.FC<PlayersViewProps> = ({ 
   players, 
   gameEntries = [],
-  onSwipeLeft,
-  onSwipeRight,
 }) => {
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const deltaX = touchEndX - touchStartX.current;
-    const deltaY = touchEndY - touchStartY.current;
-
-    // Only trigger swipe if horizontal movement is greater than vertical (horizontal swipe)
-    // and the swipe is significant enough (at least 50px)
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-      if (deltaX > 0 && onSwipeRight) {
-        // Swipe right - go to previous set
-        onSwipeRight();
-      } else if (deltaX < 0 && onSwipeLeft) {
-        // Swipe left - go to next set
-        onSwipeLeft();
-      }
-    }
-
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
 
   return (
     <div 
-      ref={containerRef}
-      className="flex-1 flex flex-col justify-between pt-10 sm:pt-12 px-2 sm:px-4 pb-32 relative z-10 min-h-0 gap-3 touch-none"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      className="flex-1 flex flex-col justify-between pt-10 sm:pt-12 px-2 sm:px-4 pb-32 relative z-10 min-h-0 gap-3"
     >
       {/* Player Cards */}
       <div className="grid grid-cols-4 gap-3 sm:gap-4 w-full mt-8 sm:mt-10 flex-shrink-0">

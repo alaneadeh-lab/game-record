@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, Plus } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
@@ -211,6 +211,11 @@ function App() {
     }
   }, [playerSets.length]);
 
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
+
   const handleSwipeLeft = useCallback(() => {
     // Swipe left - go to next set
     if (playerSets.length > 0) {
@@ -226,6 +231,83 @@ function App() {
       setCurrentSetIndex(prevIndex);
     }
   }, [currentSetIndex, playerSets.length]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+    setSwipeOffset(0);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    
+    const currentX = e.touches[0].clientX;
+    const deltaX = currentX - touchStartX;
+    
+    // Calculate swipe offset (percentage of screen width)
+    const screenWidth = window.innerWidth;
+    const offset = (deltaX / screenWidth) * 100;
+    
+    // Check boundaries
+    const isAtFirst = currentSetIndex === 0;
+    const isAtLast = currentSetIndex === playerSets.length - 1;
+    
+    // Apply resistance at boundaries (reduce movement by 50%)
+    let adjustedOffset = offset;
+    if (deltaX > 0 && isAtFirst) {
+      // Swiping right at first set - apply resistance
+      adjustedOffset = offset * 0.3;
+    } else if (deltaX < 0 && isAtLast) {
+      // Swiping left at last set - apply resistance
+      adjustedOffset = offset * 0.3;
+    }
+    
+    setSwipeOffset(adjustedOffset);
+  }, [touchStartX, currentSetIndex, playerSets.length]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX === null) {
+      setIsSwiping(false);
+      return;
+    }
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const deltaX = touchEndX - touchStartX;
+    const screenWidth = window.innerWidth;
+    const swipeThreshold = screenWidth * 0.25; // 25% of screen width
+
+    const isAtFirst = currentSetIndex === 0;
+    const isAtLast = currentSetIndex === playerSets.length - 1;
+
+    // Check if we're at boundaries and trying to swipe beyond
+    if (deltaX > 0 && isAtFirst) {
+      // Swiping right at first - bounce back
+      setSwipeOffset(0);
+      setTimeout(() => {
+        setSwipeOffset(0);
+      }, 300);
+    } else if (deltaX < 0 && isAtLast) {
+      // Swiping left at last - bounce back
+      setSwipeOffset(0);
+      setTimeout(() => {
+        setSwipeOffset(0);
+      }, 300);
+    } else if (Math.abs(deltaX) > swipeThreshold) {
+      // Significant swipe - change set
+      if (deltaX > 0) {
+        handleSwipeRight();
+      } else {
+        handleSwipeLeft();
+      }
+      setSwipeOffset(0);
+    } else {
+      // Not enough swipe - bounce back to current position
+      setSwipeOffset(0);
+    }
+
+    setTouchStartX(null);
+    setIsSwiping(false);
+  }, [touchStartX, currentSetIndex, playerSets.length, handleSwipeLeft, handleSwipeRight]);
 
   const handleSaveGameFromMain = useCallback((entryData: Omit<GameEntry, 'id' | 'date'>) => {
     const set = playerSets[currentSetIndex];
@@ -422,39 +504,65 @@ function App() {
         />
       )}
 
-      {/* Main Players View */}
+      {/* Main Players View with Swipe Animation */}
       {!showAdmin && !showPlayerInventory && (
-        <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto">
-          <PlayersView 
-            players={resolvePlayers(currentSet.playerIds)} 
-            gameEntries={currentSet.gameEntries}
-            onSwipeLeft={handleSwipeLeft}
-            onSwipeRight={handleSwipeRight}
-          />
-          
-          {/* Action Buttons - Bottom Right (inside scrollable area) */}
-          <div className="sticky bottom-4 right-4 flex gap-3 justify-end z-50 pointer-events-none mt-auto pt-4 pb-4">
-            <div className="flex gap-3 pointer-events-auto">
-              {/* Add Game Button */}
-              {currentSet && (
-                <button
-                  onClick={handleAddGameClick}
-                  className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-                  aria-label="Add game"
+        <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-hidden">
+          {/* Swipeable Container */}
+          <div
+            ref={swipeContainerRef}
+            className="flex-1 flex relative w-full overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              transform: `translateX(${swipeOffset}%)`,
+              transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            {/* Render all sets in a horizontal row */}
+            {playerSets.map((set, index) => {
+              const offset = (index - currentSetIndex) * 100;
+              return (
+                <div
+                  key={set.id}
+                  className="absolute inset-0 w-full flex flex-col"
+                  style={{
+                    transform: `translateX(${offset + swipeOffset}%)`,
+                    transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
                 >
-                  <Plus className="w-7 h-7" />
-                </button>
-              )}
-              
-              {/* Admin Button */}
-              <button
-                onClick={handleAdminClick}
-                className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-                aria-label="Open admin"
-              >
-                <Settings className="w-7 h-7" />
-              </button>
-            </div>
+                  <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto">
+                    <PlayersView 
+                      players={resolvePlayers(set.playerIds)} 
+                      gameEntries={set.gameEntries}
+                    />
+                    
+                    {/* Action Buttons - Bottom Right (inside scrollable area) */}
+                    <div className="sticky bottom-4 right-4 flex gap-3 justify-end z-50 pointer-events-none mt-auto pt-4 pb-4">
+                      <div className="flex gap-3 pointer-events-auto">
+                        {/* Add Game Button */}
+                        <button
+                          onClick={handleAddGameClick}
+                          className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                          aria-label="Add game"
+                        >
+                          <Plus className="w-7 h-7" />
+                        </button>
+                        
+                        {/* Admin Button */}
+                        <button
+                          onClick={handleAdminClick}
+                          className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                          aria-label="Open admin"
+                        >
+                          <Settings className="w-7 h-7" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
