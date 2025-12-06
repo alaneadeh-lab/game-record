@@ -560,6 +560,14 @@ function App() {
             {/* Render all sets in a horizontal row */}
             {playerSets.map((set, index) => {
               const offset = (index - currentSetIndex) * 100;
+              
+              // Memoize player stats calculation to avoid recalculating on every render
+              // Only recalculate when set data actually changes
+              const setPlayerStats = useMemo(() => 
+                calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries),
+                [set.playerIds, allPlayers, set.gameEntries]
+              );
+              
               return (
                 <div
                   key={set.id}
@@ -580,7 +588,7 @@ function App() {
                     className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
                   >
                     <PlayersView 
-                      players={calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries)} 
+                      players={setPlayerStats} 
                       gameEntries={set.gameEntries}
                       onAddGameClick={handleAddGameClick}
                       onAdminClick={handleAdminClick}
