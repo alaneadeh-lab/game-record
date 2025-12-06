@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PokerAnimation from './PokerAnimation';
 import TiredEmojiAnimation from './TiredEmojiAnimation';
 import Crown from './Crown';
-import FlySwarm from './FlySwarm';
+import SingleFly from './SingleFly';
 import type { Player } from '../types';
 import { calculateMedalPoints, getPlayerRank } from '../utils/gameLogic';
 
@@ -92,10 +92,15 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
               
               {/* Fly Swarm for Last Place (Points row only) */}
               {isLastPlace && (
-                <FlySwarm
-                  size={112}
-                  className="absolute -top-8 -right-2 z-50 pointer-events-none"
-                />
+                <div className="absolute -top-8 -right-2 z-50 pointer-events-none w-[112px] h-[112px]">
+                  {[...Array(7)].map((_, i) => (
+                    <SingleFly
+                      key={i}
+                      size={24}
+                      className=""
+                    />
+                  ))}
+                </div>
               )}
               
               <div
