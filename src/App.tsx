@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, Plus } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
 import { PinModal } from './components/PinModal';
