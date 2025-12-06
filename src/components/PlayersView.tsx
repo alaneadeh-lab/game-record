@@ -18,7 +18,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({ players, gameEntries =
   return (
     <div className="flex-1 flex flex-col justify-between pt-10 sm:pt-12 px-2 sm:px-4 pb-24 relative z-10 min-h-0 gap-3">
       {/* Player Cards */}
-      <div className="grid grid-cols-4 gap-3 sm:gap-4 w-full mt-3 flex-shrink-0">
+      <div className="grid grid-cols-4 gap-3 sm:gap-4 w-full mt-8 sm:mt-10 flex-shrink-0">
         {sortedPlayers.map((player) => (
           <PlayerCard 
             key={player.id}
