@@ -1,4 +1,5 @@
 import React from 'react';
+import FirstPlaceBadge from './FirstPlaceBadge';
 import type { Player } from '../types';
 
 interface PlayerCardProps {
@@ -46,6 +47,14 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
 
   return (
     <div className="relative w-full flex flex-col items-center">
+      {/* First Place Badge - Above the profile box */}
+      {rank === 1 && (
+        <FirstPlaceBadge
+          size={80}
+          className="absolute -top-10 z-50 pointer-events-none"
+        />
+      )}
+      
       {/* Player Card Frame */}
       <div
         className={`w-full h-[140px] sm:h-[160px] rounded-2xl relative ${rankStyles.border} ${rankStyles.shadow} ${rankStyles.innerShadow}`}

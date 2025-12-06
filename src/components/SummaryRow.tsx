@@ -1,6 +1,6 @@
 import React from 'react';
 import PokerAnimation from './PokerAnimation';
-import FirstPlaceBadge from './FirstPlaceBadge';
+import Crown from './Crown';
 import FlySwarm from './FlySwarm';
 import type { Player } from '../types';
 import { calculateMedalPoints, getPlayerRank } from '../utils/gameLogic';
@@ -49,9 +49,9 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
           
           return (
             <div key={player.id} className="relative">
-              {/* First Place Badge (Points row only) */}
+              {/* Crown for 1st place (Points row only) */}
               {isFirstPlace && (
-                <FirstPlaceBadge
+                <Crown
                   size={60}
                   className="absolute -top-8 -right-2 z-50 pointer-events-none animate-[float_2.4s_ease-in-out_infinite] drop-shadow-[0_0_12px_rgba(255,215,0,0.9)]"
                 />

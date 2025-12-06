@@ -7,7 +7,7 @@ interface FirstPlaceBadgeProps {
 }
 
 const FirstPlaceBadge: React.FC<FirstPlaceBadgeProps> = ({ 
-  size = 60, 
+  size = 80, 
   className = "" 
 }) => {
   return (
