@@ -104,17 +104,22 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
                 className={`embossed rounded-2xl px-4 py-4 bg-gradient-to-br ${getGradient()} text-center transform transition-all duration-200 hover:scale-105 flex flex-col justify-center shadow-3d relative`}
               >
                 <div 
-                  className={`font-semibold mb-1 sm:mb-2 truncate text-white ${isPoints ? 'text-lg sm:text-xl' : 'text-sm sm:text-base'}`}
+                  className={`font-semibold mb-1 sm:mb-2 truncate ${isPoints ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}
                   style={{
-                    fontSize: isPoints ? '1.15em' : '1.15em',
+                    color: '#ffffff',
+                    textShadow: '2px 2px 0px rgba(0,0,0,0.8), 0px 0px 10px rgba(0,0,0,0.5), 0px 2px 4px rgba(0,0,0,0.6)',
+                    WebkitTextStroke: '0.5px rgba(0,0,0,0.3)',
                   }}
                 >
                   {player.name}
                 </div>
                 <div 
-                  className="font-bold text-white"
+                  className="text-lg sm:text-xl font-bold"
                   style={{
-                    fontSize: '1.15em',
+                    color: '#ffffff',
+                    textShadow: '3px 3px 0px rgba(0,0,0,0.9), 0px 0px 15px rgba(0,0,0,0.6), 0px 3px 6px rgba(0,0,0,0.7), 1px 1px 2px rgba(255,255,255,0.3)',
+                    WebkitTextStroke: '1px rgba(0,0,0,0.4)',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
                   }}
                 >
                   {value}
