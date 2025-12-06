@@ -9,6 +9,7 @@ import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
 import { calculatePlayerStatsForSet } from './utils/gameLogic';
 import type { PlayerSet, Player, AppData, GameEntry } from './types';
+import { v4 as uuidv4 } from 'uuid';
 
 function App() {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
@@ -50,18 +51,50 @@ function App() {
             { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
           ];
           setAllPlayers(defaultPlayers);
-          // Save default players to storage
-          await storageService.saveAppData({
-            allPlayers: defaultPlayers,
-            sets: appData.sets,
-          });
+          
+          // If no sets exist, create a default set with all players
+          if (appData.sets.length === 0) {
+            const defaultSet: PlayerSet = {
+              id: uuidv4(),
+              name: 'Default Set',
+              playerIds: defaultPlayers.map(p => p.id),
+              gameEntries: [],
+            };
+            await storageService.saveAppData({
+              allPlayers: defaultPlayers,
+              sets: [defaultSet],
+            });
+            setPlayerSets([defaultSet]);
+          } else {
+            await storageService.saveAppData({
+              allPlayers: defaultPlayers,
+              sets: appData.sets,
+            });
+            setPlayerSets(appData.sets);
+          }
         } else {
           // Preserve player data as loaded from storage (including stats)
           // Stats are calculated per-set when displaying, but we preserve what was saved
           setAllPlayers(appData.allPlayers);
+          
+          // If we have players but no sets, create a default set
+          if (appData.sets.length === 0 && appData.allPlayers.length >= 4) {
+            console.log('⚠️ No sets found but players exist, creating default set');
+            const defaultSet: PlayerSet = {
+              id: uuidv4(),
+              name: 'Default Set',
+              playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
+              gameEntries: [],
+            };
+            await storageService.saveAppData({
+              allPlayers: appData.allPlayers,
+              sets: [defaultSet],
+            });
+            setPlayerSets([defaultSet]);
+          } else {
+            setPlayerSets(appData.sets);
+          }
         }
-        
-        setPlayerSets(appData.sets);
       } catch (error) {
         console.error('Failed to load data:', error);
         // On error, try to load again but preserve what's loaded
