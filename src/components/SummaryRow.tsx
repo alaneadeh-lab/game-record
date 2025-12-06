@@ -22,17 +22,36 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   const ranks = isPoints ? getPlayerRank(players) : {};
   
   // Alternate between poker animation and tired emoji for fatt leader
+  // Poker animation shows 3x longer than tired emoji (3:1 ratio)
   const [showPokerAnimation, setShowPokerAnimation] = useState(true);
   
   useEffect(() => {
     if (isPoints) return; // Only alternate for fatts row
     
-    const interval = setInterval(() => {
-      setShowPokerAnimation(prev => !prev);
-    }, 1200); // Alternate every 1.2 seconds
+    let timeoutId: NodeJS.Timeout;
     
-    return () => clearInterval(interval);
-  }, [isPoints]);
+    const scheduleNext = () => {
+      if (showPokerAnimation) {
+        // Show poker animation for 1.8 seconds (3 * 0.6)
+        timeoutId = setTimeout(() => {
+          setShowPokerAnimation(false);
+          scheduleNext();
+        }, 1800);
+      } else {
+        // Show tired emoji for 0.6 seconds (1 * 0.6)
+        timeoutId = setTimeout(() => {
+          setShowPokerAnimation(true);
+          scheduleNext();
+        }, 600);
+      }
+    };
+    
+    scheduleNext();
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isPoints, showPokerAnimation]);
   
   const getGradient = () => {
     if (isPoints) {
