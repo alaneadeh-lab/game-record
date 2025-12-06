@@ -4,7 +4,7 @@ import { GameEntryForm } from './GameEntryForm';
 import { PlayerSetSelector } from './PlayerSetSelector';
 import { SetManagerModal } from './SetManagerModal';
 import type { Player, GameEntry, PlayerSet } from '../types';
-import { applyGameEntry, removeGameEntry, recalculateMedals } from '../utils/gameLogic';
+// Stats are calculated per-set, not stored globally
 
 interface AdminPanelProps {
   playerSet: PlayerSet;
@@ -26,7 +26,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   playerSets,
   currentSetIndex,
   onUpdateSet,
-  onUpdateAllPlayers,
+  onUpdateAllPlayers: _onUpdateAllPlayers, // Unused - stats are per-set, not global
   onClose,
   onAddNewSet,
   onOpenPlayerInventory,
@@ -48,93 +48,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     let updatedEntries: GameEntry[];
 
     if (editingGame) {
-      // Remove old entry effects from global players
-      const playersAfterRemove = removeGameEntry(setPlayers, editingGame);
-      
-      // Apply new entry to global players
-      const playersAfterApply = applyGameEntry(playersAfterRemove, {
-        ...entryData,
-        id: editingGame.id,
-        date: editingGame.date,
-      });
-
+      // Update existing entry (stats are calculated per-set on display)
       updatedEntries = playerSet.gameEntries.map((e) =>
         e.id === editingGame.id
           ? { ...entryData, id: editingGame.id, date: editingGame.date }
           : e
       );
-
-      // Recalculate medals from all game entries for this set
-      const playersWithMedals = recalculateMedals(playersAfterApply, updatedEntries);
-      
-      // Update global players
-      onUpdateAllPlayers(prev => {
-        const updated = [...prev];
-        playersWithMedals.forEach(updatedPlayer => {
-          const index = updated.findIndex(p => p.id === updatedPlayer.id);
-          if (index !== -1) {
-            updated[index] = updatedPlayer;
-          }
-        });
-        return updated;
-      });
-
       setEditingGame(null);
     } else {
+      // Add new entry (stats are calculated per-set on display)
       const newEntry: GameEntry = {
         ...entryData,
         id: Date.now().toString(),
         date: new Date().toISOString(),
       };
-
-      // Apply new entry to global players
-      const playersAfterApply = applyGameEntry(setPlayers, newEntry);
       updatedEntries = [...playerSet.gameEntries, newEntry];
-      
-      // Recalculate medals from all game entries for this set
-      const playersWithMedals = recalculateMedals(playersAfterApply, updatedEntries);
-      
-      // Update global players
-      onUpdateAllPlayers(prev => {
-        const updated = [...prev];
-        playersWithMedals.forEach(updatedPlayer => {
-          const index = updated.findIndex(p => p.id === updatedPlayer.id);
-          if (index !== -1) {
-            updated[index] = updatedPlayer;
-          }
-        });
-        return updated;
-      });
     }
 
+    // Update the set with new/updated game entries
+    // Stats are calculated per-set when displaying, not stored globally
     onUpdateSet({
       ...playerSet,
       gameEntries: updatedEntries,
     });
+
     setShowGameForm(false);
   };
 
   const handleDeleteGame = (entryId: string) => {
     const entry = playerSet.gameEntries.find((e) => e.id === entryId);
     if (entry && confirm('Delete this game entry?')) {
-      // Remove entry effects from global players
-      const playersAfterRemove = removeGameEntry(setPlayers, entry);
+      // Remove entry from set (stats are calculated per-set on display)
       const updatedEntries = playerSet.gameEntries.filter((e) => e.id !== entryId);
-      
-      // Recalculate medals from all remaining game entries
-      const playersWithMedals = recalculateMedals(playersAfterRemove, updatedEntries);
-      
-      // Update global players
-      onUpdateAllPlayers(prev => {
-        const updated = [...prev];
-        playersWithMedals.forEach(updatedPlayer => {
-          const index = updated.findIndex(p => p.id === updatedPlayer.id);
-          if (index !== -1) {
-            updated[index] = updatedPlayer;
-          }
-        });
-        return updated;
-      });
       
       onUpdateSet({
         ...playerSet,

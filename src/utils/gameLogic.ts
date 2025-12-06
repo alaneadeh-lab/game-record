@@ -183,83 +183,50 @@ export function recalculateMedalsForPlayerAcrossAllSets(
 }
 
 /**
- * Recalculate all medals and fatts for all players across all sets
- * This ensures data consistency on initial load
+ * Calculate player stats (medals, fatts, points) for a specific set
+ * Stats are exclusive to this set and not shared across sets
  */
-export function recalculateAllPlayersAcrossAllSets(
+export function calculatePlayerStatsForSet(
+  playerIds: string[],
   allPlayers: Player[],
-  allSets: Array<{ playerIds: string[]; gameEntries: GameEntry[] }>
+  gameEntries: GameEntry[]
 ): Player[] {
-  // Create a map to aggregate medals and fatts across all sets
-  const playerStatsMap = new Map<string, {
-    goldMedals: number;
-    silverMedals: number;
-    bronzeMedals: number;
-    tomatoes: number;
-    fatts: number;
-  }>();
+  // Get players in this set (base player info only, no stats)
+  const setPlayers = playerIds
+    .map(id => {
+      const player = allPlayers.find(p => p.id === id);
+      if (!player) return null;
+      // Return player with stats reset to 0 (stats are per-set)
+      return {
+        ...player,
+        points: 0,
+        fatts: 0,
+        goldMedals: 0,
+        silverMedals: 0,
+        bronzeMedals: 0,
+        tomatoes: 0,
+      };
+    })
+    .filter((p): p is Player => p !== null);
 
-  // Initialize all players' stats to 0
-  allPlayers.forEach(player => {
-    playerStatsMap.set(player.id, {
-      goldMedals: 0,
-      silverMedals: 0,
-      bronzeMedals: 0,
-      tomatoes: 0,
-      fatts: 0,
-    });
-  });
+  if (setPlayers.length === 0) return [];
 
-  // Calculate medals and fatts for each set
-  for (const set of allSets) {
-    // Get all players in this set
-    const setPlayers = set.playerIds
-      .map(id => allPlayers.find(p => p.id === id))
-      .filter((p): p is Player => p !== undefined);
+  // Calculate medals from this set's game entries only
+  const playersWithMedals = recalculateMedals(setPlayers, gameEntries);
 
-    if (setPlayers.length === 0) continue;
-
-    // Recalculate medals for this set
-    const playersWithMedals = recalculateMedals(setPlayers, set.gameEntries);
-
-    // Calculate fatts from all game entries in this set
-    let playersWithFatts = setPlayers.map(p => ({ ...p, fatts: 0 }));
-    for (const gameEntry of set.gameEntries) {
-      playersWithFatts = applyGameEntry(playersWithFatts, gameEntry);
-    }
-
-    // Aggregate medals and fatts for each player in this set
-    for (const setPlayer of setPlayers) {
-      const playerWithMedals = playersWithMedals.find(p => p.id === setPlayer.id);
-      const playerWithFatts = playersWithFatts.find(p => p.id === setPlayer.id);
-      const stats = playerStatsMap.get(setPlayer.id);
-      
-      if (playerWithMedals && playerWithFatts && stats) {
-        stats.goldMedals += playerWithMedals.goldMedals;
-        stats.silverMedals += playerWithMedals.silverMedals;
-        stats.bronzeMedals += playerWithMedals.bronzeMedals;
-        stats.tomatoes += playerWithMedals.tomatoes;
-        stats.fatts += playerWithFatts.fatts;
-      }
-    }
+  // Calculate fatts from this set's game entries only
+  let playersWithFatts = setPlayers.map(p => ({ ...p, fatts: 0 }));
+  for (const gameEntry of gameEntries) {
+    playersWithFatts = applyGameEntry(playersWithFatts, gameEntry);
   }
 
-  // Update all players with recalculated stats
-  return allPlayers.map(player => {
-    const stats = playerStatsMap.get(player.id);
-    if (!stats) return player;
-
-    const updatedPlayer = {
+  // Merge medals and fatts for each player
+  return playersWithMedals.map(player => {
+    const playerWithFatts = playersWithFatts.find(p => p.id === player.id);
+    return {
       ...player,
-      goldMedals: stats.goldMedals,
-      silverMedals: stats.silverMedals,
-      bronzeMedals: stats.bronzeMedals,
-      tomatoes: stats.tomatoes,
-      fatts: stats.fatts,
+      fatts: playerWithFatts?.fatts || 0,
     };
-    // Recalculate points based on medals
-    updatedPlayer.points = calculateMedalPoints(updatedPlayer);
-    return updatedPlayer;
   });
 }
 

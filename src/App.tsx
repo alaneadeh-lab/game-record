@@ -7,7 +7,7 @@ import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
 import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
-import { applyGameEntry, recalculateMedals, recalculateAllPlayersAcrossAllSets } from './utils/gameLogic';
+import { calculatePlayerStatsForSet } from './utils/gameLogic';
 import type { PlayerSet, Player, AppData, GameEntry } from './types';
 
 function App() {
@@ -56,25 +56,35 @@ function App() {
             sets: appData.sets,
           });
         } else {
-          // Recalculate all medals and fatts from game entries to ensure data consistency
-          // This fixes any stale/incorrect medal counts that might be stored
-          const recalculatedPlayers = recalculateAllPlayersAcrossAllSets(
-            appData.allPlayers,
-            appData.sets
-          );
-          setAllPlayers(recalculatedPlayers);
+          // Reset all player stats to 0 (stats are per-set, not global)
+          // Players are shared across sets, but stats are calculated per-set
+          const playersWithResetStats = appData.allPlayers.map(p => ({
+            ...p,
+            points: 0,
+            fatts: 0,
+            goldMedals: 0,
+            silverMedals: 0,
+            bronzeMedals: 0,
+            tomatoes: 0,
+          }));
+          setAllPlayers(playersWithResetStats);
         }
         
         setPlayerSets(appData.sets);
       } catch (error) {
         console.error('Failed to load data:', error);
         const appData = await storageService.loadAppData();
-        // Recalculate all medals and fatts from game entries to ensure data consistency
-        const recalculatedPlayers = recalculateAllPlayersAcrossAllSets(
-          appData.allPlayers,
-          appData.sets
-        );
-        setAllPlayers(recalculatedPlayers);
+        // Reset all player stats to 0 (stats are per-set, not global)
+        const playersWithResetStats = appData.allPlayers.map(p => ({
+          ...p,
+          points: 0,
+          fatts: 0,
+          goldMedals: 0,
+          silverMedals: 0,
+          bronzeMedals: 0,
+          tomatoes: 0,
+        }));
+        setAllPlayers(playersWithResetStats);
         setPlayerSets(appData.sets);
       } finally {
         setIsLoading(false);
@@ -361,40 +371,20 @@ function App() {
     const set = playerSets[currentSetIndex];
     if (!set) return;
 
-    const setPlayers = resolvePlayers(set.playerIds);
     const newEntry: GameEntry = {
       ...entryData,
       id: Date.now().toString(),
       date: new Date().toISOString(),
     };
 
-    // Apply new entry to global players
-    const playersAfterApply = applyGameEntry(setPlayers, newEntry);
-    const updatedEntries = [...set.gameEntries, newEntry];
-    
-    // Recalculate medals from all game entries for this set
-    const playersWithMedals = recalculateMedals(playersAfterApply, updatedEntries);
-    
-    // Update global players
-    setAllPlayers(prev => {
-      const updated = [...prev];
-      playersWithMedals.forEach(updatedPlayer => {
-        const index = updated.findIndex(p => p.id === updatedPlayer.id);
-        if (index !== -1) {
-          updated[index] = updatedPlayer;
-        }
-      });
-      return updated;
-    });
-
-    // Update the set with new game entry
+    // Update the set with new game entry (stats are calculated per-set on display)
     handleUpdateSet({
       ...set,
-      gameEntries: updatedEntries,
+      gameEntries: [...set.gameEntries, newEntry],
     });
 
     setShowGameForm(false);
-  }, [currentSetIndex, playerSets, resolvePlayers, handleUpdateSet]);
+  }, [currentSetIndex, playerSets, handleUpdateSet]);
 
   const handleAdminClick = () => {
     if (showAdmin) {
@@ -590,7 +580,7 @@ function App() {
                     className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
                   >
                     <PlayersView 
-                      players={resolvePlayers(set.playerIds)} 
+                      players={calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries)} 
                       gameEntries={set.gameEntries}
                       onAddGameClick={handleAddGameClick}
                       onAdminClick={handleAdminClick}
