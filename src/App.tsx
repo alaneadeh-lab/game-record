@@ -447,6 +447,32 @@ function App() {
     setShowPinModalForGame(true);
   };
 
+  const handleRecoveryUpload = useCallback(async () => {
+    try {
+      setRecoveryStatus('uploading');
+      setRecoveryError(null);
+      
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
+      const userId = import.meta.env.VITE_USER_ID || 'default';
+      
+      const result = await uploadLocalStorageToMongoDB(apiUrl, userId);
+      
+      if (result.success) {
+        setRecoveryStatus('success');
+        // Reload the page to fetch the newly uploaded data
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setRecoveryStatus('error');
+        setRecoveryError(result.error || 'Failed to upload data');
+      }
+    } catch (error) {
+      setRecoveryStatus('error');
+      setRecoveryError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-casino-felt">
