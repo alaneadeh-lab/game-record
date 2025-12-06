@@ -348,11 +348,6 @@ function App() {
       {/* Main Players View */}
       {!showAdmin && !showPlayerInventory && (
         <div className="flex-1 flex flex-col relative z-10 min-h-0">
-          <div className="text-center pt-10 sm:pt-12 pb-1 sm:pb-2 flex-shrink-0">
-            <h1 className="text-xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-lg">
-              🎴 Hand Game Tracker
-            </h1>
-          </div>
           <PlayersView 
             players={resolvePlayers(currentSet.playerIds)} 
             gameEntries={currentSet.gameEntries}
