@@ -28,7 +28,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   useEffect(() => {
     if (isPoints) return; // Only alternate for fatts row
     
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     
     const scheduleNext = () => {
       if (showPokerAnimation) {
