@@ -542,64 +542,70 @@ function App() {
         />
       )}
 
-      {/* Main Players View with Swipe Animation */}
-      {!showAdmin && !showPlayerInventory && (
-        <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-hidden">
-          {/* Swipeable Container */}
-          <div
-            ref={swipeContainerRef}
-            className="flex-1 flex relative w-full overflow-hidden"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            style={{
-              transform: `translateX(${swipeOffset}%)`,
-              transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          >
-            {/* Render all sets in a horizontal row */}
-            {playerSets.map((set, index) => {
-              const offset = (index - currentSetIndex) * 100;
-              
-              // Memoize player stats calculation to avoid recalculating on every render
-              // Only recalculate when set data actually changes
-              const setPlayerStats = useMemo(() => 
-                calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries),
-                [set.playerIds, allPlayers, set.gameEntries]
-              );
-              
-              return (
-                <div
-                  key={set.id}
-                  className="absolute inset-0 w-full flex flex-col"
-                  style={{
-                    transform: `translateX(${offset + swipeOffset}%)`,
-                    transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                >
-                  <div 
-                    ref={(el) => {
-                      if (el) {
-                        scrollableContainerRefs.current.set(index, el);
-                      } else {
-                        scrollableContainerRefs.current.delete(index);
-                      }
+      {/* Pre-calculate all set stats once (outside render to avoid hooks in loops) */}
+      {(() => {
+        const allSetStats = useMemo(() => {
+          const statsMap = new Map<string, ReturnType<typeof calculatePlayerStatsForSet>>();
+          playerSets.forEach(set => {
+            statsMap.set(set.id, calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries));
+          });
+          return statsMap;
+        }, [playerSets, allPlayers]);
+
+        return !showAdmin && !showPlayerInventory ? (
+          <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-hidden">
+            {/* Swipeable Container */}
+            <div
+              ref={swipeContainerRef}
+              className="flex-1 flex relative w-full overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{
+                transform: `translateX(${swipeOffset}%)`,
+                transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              {/* Render all sets in a horizontal row */}
+              {playerSets.map((set, index) => {
+                const offset = (index - currentSetIndex) * 100;
+                
+                // Get pre-calculated stats (safe - not a hook call, just a Map lookup)
+                const setPlayerStats = allSetStats.get(set.id) || calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries);
+                
+                return (
+                  <div
+                    key={set.id}
+                    className="absolute inset-0 w-full flex flex-col"
+                    style={{
+                      transform: `translateX(${offset + swipeOffset}%)`,
+                      transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
-                    className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
                   >
-                    <PlayersView 
-                      players={setPlayerStats} 
-                      gameEntries={set.gameEntries}
-                      onAddGameClick={handleAddGameClick}
-                      onAdminClick={handleAdminClick}
-                    />
+                    <div 
+                      ref={(el) => {
+                        if (el) {
+                          scrollableContainerRefs.current.set(index, el);
+                        } else {
+                          scrollableContainerRefs.current.delete(index);
+                        }
+                      }}
+                      className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
+                    >
+                      <PlayersView 
+                        players={setPlayerStats} 
+                        gameEntries={set.gameEntries}
+                        onAddGameClick={handleAddGameClick}
+                        onAdminClick={handleAdminClick}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       {/* Game Entry Form Modal */}
       {showGameForm && currentSet && !showAdmin && (
