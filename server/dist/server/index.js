@@ -11,10 +11,11 @@ const DB_NAME = process.env.DB_NAME || 'game-record';
 const COLLECTION_NAME = 'app-data';
 // URL-encode the MongoDB URI to handle special characters in password
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
-// CORS configuration: Allow production URL and all Vercel preview deployments
+// CORS configuration: Allow production URL, custom domain, and all Vercel preview deployments
 const corsOptions = {
     origin: (origin, callback) => {
         const productionUrl = process.env.FRONTEND_URL;
+        const customDomain = 'https://www.le3beh-tracker.com';
         // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
         if (!origin) {
             return callback(null, true);
@@ -27,6 +28,11 @@ const corsOptions = {
         if (origin === productionUrl) {
             return callback(null, true);
         }
+        // Allow custom domain (www.le3beh-tracker.com and non-www version)
+        if (origin === customDomain || origin === 'https://le3beh-tracker.com' || origin === 'http://www.le3beh-tracker.com' || origin === 'http://le3beh-tracker.com') {
+            console.log(`✅ CORS: Allowing custom domain: ${origin}`);
+            return callback(null, true);
+        }
         // Allow all Vercel preview deployments (*.vercel.app)
         // This matches patterns like:
         // - https://game-record-jet.vercel.app (production)
@@ -37,7 +43,7 @@ const corsOptions = {
             return callback(null, true);
         }
         // Deny all other origins
-        console.log(`❌ CORS: Blocked origin: ${origin} (expected: ${productionUrl} or *.vercel.app)`);
+        console.log(`❌ CORS: Blocked origin: ${origin} (expected: ${productionUrl}, ${customDomain}, or *.vercel.app)`);
         callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     },
     methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
@@ -237,7 +243,7 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📊 MongoDB URI: ${MONGODB_URI_RAW ? 'Set (password hidden)' : 'Not set'}`);
     console.log(`💾 Database: ${DB_NAME}`);
-    console.log(`🌐 CORS Origin: ${process.env.FRONTEND_URL || 'All origins (*)'}`);
+    console.log(`🌐 CORS Origins: ${process.env.FRONTEND_URL || 'All origins (*)'}, https://www.le3beh-tracker.com`);
     console.log(`\n📡 Health check: http://localhost:${PORT}/health`);
     console.log(`📡 API endpoint: http://localhost:${PORT}/api/app-data\n`);
 });
