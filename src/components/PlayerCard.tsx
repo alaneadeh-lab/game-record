@@ -55,6 +55,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
         />
       )}
       
+      {/* Spacer to push card box down while keeping badge in place */}
+      <div className="h-6 sm:h-8 w-full" />
+      
       {/* Player Card Frame */}
       <div
         className={`w-full h-[140px] sm:h-[160px] rounded-2xl relative ${rankStyles.border} ${rankStyles.shadow} ${rankStyles.innerShadow}`}
