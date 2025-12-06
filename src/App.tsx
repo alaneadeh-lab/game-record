@@ -560,27 +560,25 @@ function App() {
                       gameEntries={set.gameEntries}
                     />
                     
-                    {/* Action Buttons - Bottom Right (inside scrollable area) */}
-                    <div className="sticky bottom-4 right-4 flex gap-3 justify-end z-50 pointer-events-none mt-auto pt-4 pb-4">
-                      <div className="flex gap-3 pointer-events-auto">
-                        {/* Add Game Button */}
-                        <button
-                          onClick={handleAddGameClick}
-                          className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-                          aria-label="Add game"
-                        >
-                          <Plus className="w-7 h-7" />
-                        </button>
-                        
-                        {/* Admin Button */}
-                        <button
-                          onClick={handleAdminClick}
-                          className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-                          aria-label="Open admin"
-                        >
-                          <Settings className="w-7 h-7" />
-                        </button>
-                      </div>
+                    {/* Action Buttons - At the end of content (scrolls with content) */}
+                    <div className="flex gap-3 justify-end pr-4 pb-4 pt-2">
+                      {/* Add Game Button */}
+                      <button
+                        onClick={handleAddGameClick}
+                        className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                        aria-label="Add game"
+                      >
+                        <Plus className="w-7 h-7" />
+                      </button>
+                      
+                      {/* Admin Button */}
+                      <button
+                        onClick={handleAdminClick}
+                        className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                        aria-label="Open admin"
+                      >
+                        <Settings className="w-7 h-7" />
+                      </button>
                     </div>
                   </div>
                 </div>
