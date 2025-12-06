@@ -182,4 +182,84 @@ export function recalculateMedalsForPlayerAcrossAllSets(
   return updatedPlayer;
 }
 
+/**
+ * Recalculate all medals and fatts for all players across all sets
+ * This ensures data consistency on initial load
+ */
+export function recalculateAllPlayersAcrossAllSets(
+  allPlayers: Player[],
+  allSets: Array<{ playerIds: string[]; gameEntries: GameEntry[] }>
+): Player[] {
+  // Create a map to aggregate medals and fatts across all sets
+  const playerStatsMap = new Map<string, {
+    goldMedals: number;
+    silverMedals: number;
+    bronzeMedals: number;
+    tomatoes: number;
+    fatts: number;
+  }>();
+
+  // Initialize all players' stats to 0
+  allPlayers.forEach(player => {
+    playerStatsMap.set(player.id, {
+      goldMedals: 0,
+      silverMedals: 0,
+      bronzeMedals: 0,
+      tomatoes: 0,
+      fatts: 0,
+    });
+  });
+
+  // Calculate medals and fatts for each set
+  for (const set of allSets) {
+    // Get all players in this set
+    const setPlayers = set.playerIds
+      .map(id => allPlayers.find(p => p.id === id))
+      .filter((p): p is Player => p !== undefined);
+
+    if (setPlayers.length === 0) continue;
+
+    // Recalculate medals for this set
+    const playersWithMedals = recalculateMedals(setPlayers, set.gameEntries);
+
+    // Calculate fatts from all game entries in this set
+    let playersWithFatts = setPlayers.map(p => ({ ...p, fatts: 0 }));
+    for (const gameEntry of set.gameEntries) {
+      playersWithFatts = applyGameEntry(playersWithFatts, gameEntry);
+    }
+
+    // Aggregate medals and fatts for each player in this set
+    for (const setPlayer of setPlayers) {
+      const playerWithMedals = playersWithMedals.find(p => p.id === setPlayer.id);
+      const playerWithFatts = playersWithFatts.find(p => p.id === setPlayer.id);
+      const stats = playerStatsMap.get(setPlayer.id);
+      
+      if (playerWithMedals && playerWithFatts && stats) {
+        stats.goldMedals += playerWithMedals.goldMedals;
+        stats.silverMedals += playerWithMedals.silverMedals;
+        stats.bronzeMedals += playerWithMedals.bronzeMedals;
+        stats.tomatoes += playerWithMedals.tomatoes;
+        stats.fatts += playerWithFatts.fatts;
+      }
+    }
+  }
+
+  // Update all players with recalculated stats
+  return allPlayers.map(player => {
+    const stats = playerStatsMap.get(player.id);
+    if (!stats) return player;
+
+    const updatedPlayer = {
+      ...player,
+      goldMedals: stats.goldMedals,
+      silverMedals: stats.silverMedals,
+      bronzeMedals: stats.bronzeMedals,
+      tomatoes: stats.tomatoes,
+      fatts: stats.fatts,
+    };
+    // Recalculate points based on medals
+    updatedPlayer.points = calculateMedalPoints(updatedPlayer);
+    return updatedPlayer;
+  });
+}
 

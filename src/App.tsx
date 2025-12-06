@@ -7,7 +7,7 @@ import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
 import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
-import { applyGameEntry, recalculateMedals } from './utils/gameLogic';
+import { applyGameEntry, recalculateMedals, recalculateAllPlayersAcrossAllSets } from './utils/gameLogic';
 import type { PlayerSet, Player, AppData, GameEntry } from './types';
 
 function App() {
@@ -56,14 +56,25 @@ function App() {
             sets: appData.sets,
           });
         } else {
-          setAllPlayers(appData.allPlayers);
+          // Recalculate all medals and fatts from game entries to ensure data consistency
+          // This fixes any stale/incorrect medal counts that might be stored
+          const recalculatedPlayers = recalculateAllPlayersAcrossAllSets(
+            appData.allPlayers,
+            appData.sets
+          );
+          setAllPlayers(recalculatedPlayers);
         }
         
         setPlayerSets(appData.sets);
       } catch (error) {
         console.error('Failed to load data:', error);
         const appData = await storageService.loadAppData();
-        setAllPlayers(appData.allPlayers);
+        // Recalculate all medals and fatts from game entries to ensure data consistency
+        const recalculatedPlayers = recalculateAllPlayersAcrossAllSets(
+          appData.allPlayers,
+          appData.sets
+        );
+        setAllPlayers(recalculatedPlayers);
         setPlayerSets(appData.sets);
       } finally {
         setIsLoading(false);
