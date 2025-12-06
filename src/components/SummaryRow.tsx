@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PokerAnimation from './PokerAnimation';
 import TiredEmojiAnimation from './TiredEmojiAnimation';
 import Crown from './Crown';
-import SingleFly from './SingleFly';
+import FlySwarm from './FlySwarm';
 import type { Player } from '../types';
 import { calculateMedalPoints, getPlayerRank } from '../utils/gameLogic';
 
@@ -55,16 +55,16 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   
   const getGradient = () => {
     if (isPoints) {
-      return 'from-yellow-400 via-yellow-500 to-yellow-600';
+      return 'from-blue-500 via-blue-600 to-blue-700';
     }
-    return 'from-red-400 via-orange-500 to-red-600';
+    return 'from-purple-500 via-purple-600 to-purple-700';
   };
 
   const getTextColor = () => {
     if (isPoints) {
-      return 'text-yellow-900';
+      return 'text-white';
     }
-    return 'text-red-900';
+    return 'text-white';
   };
 
   return (
@@ -90,10 +90,10 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
                 />
               )}
               
-              {/* Single Fly for Last Place (Points row only) */}
+              {/* Fly Swarm for Last Place (Points row only) */}
               {isLastPlace && (
-                <SingleFly
-                  size={32}
+                <FlySwarm
+                  size={112}
                   className="absolute -top-8 -right-2 z-50 pointer-events-none"
                 />
               )}
@@ -101,10 +101,25 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
               <div
                 className={`embossed rounded-2xl px-4 py-4 bg-gradient-to-br ${getGradient()} text-center transform transition-all duration-200 hover:scale-105 flex flex-col justify-center shadow-3d relative`}
               >
-                <div className={`font-semibold text-white mb-1 sm:mb-2 opacity-90 truncate ${isPoints ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
+                <div 
+                  className={`font-semibold mb-1 sm:mb-2 truncate ${isPoints ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}
+                  style={{
+                    color: '#ffffff',
+                    textShadow: '2px 2px 0px rgba(0,0,0,0.8), 0px 0px 10px rgba(0,0,0,0.5), 0px 2px 4px rgba(0,0,0,0.6)',
+                    WebkitTextStroke: '0.5px rgba(0,0,0,0.3)',
+                  }}
+                >
                   {player.name}
                 </div>
-                <div className="text-lg sm:text-xl font-bold text-white drop-shadow-lg">
+                <div 
+                  className="text-lg sm:text-xl font-bold"
+                  style={{
+                    color: '#ffffff',
+                    textShadow: '3px 3px 0px rgba(0,0,0,0.9), 0px 0px 15px rgba(0,0,0,0.6), 0px 3px 6px rgba(0,0,0,0.7), 1px 1px 2px rgba(255,255,255,0.3)',
+                    WebkitTextStroke: '1px rgba(0,0,0,0.4)',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+                  }}
+                >
                   {value}
                 </div>
               </div>
