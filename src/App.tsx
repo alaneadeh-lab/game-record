@@ -243,7 +243,6 @@ function App() {
       }
       
       const prevIndex = currentSetIndex === 0 ? playerSets.length - 1 : currentSetIndex - 1;
-      previousSetIndexRef.current = currentSetIndex;
       setCurrentSetIndex(prevIndex);
     }
   }, [currentSetIndex, playerSets.length]);
