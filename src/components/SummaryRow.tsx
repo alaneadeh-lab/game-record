@@ -22,7 +22,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   const ranks = isPoints ? getPlayerRank(players) : {};
   
   // Alternate between poker animation and tired emoji for fatt leader
-  // Poker animation shows 3x longer than tired emoji (3:1 ratio)
+  // Poker animation: 4 seconds, Tired emoji: 1.5 seconds
   const [showPokerAnimation, setShowPokerAnimation] = useState(true);
   
   useEffect(() => {
