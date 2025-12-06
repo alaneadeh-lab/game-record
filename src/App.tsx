@@ -215,6 +215,7 @@ function App() {
   const [swipeStarted, setSwipeStarted] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
+  const scrollableContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const handleSwipeLeft = useCallback(() => {
     // Swipe left - go to next set
@@ -553,7 +554,16 @@ function App() {
                     transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
-                  <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto">
+                  <div 
+                    ref={(el) => {
+                      if (el) {
+                        scrollableContainerRefs.current.set(index, el);
+                      } else {
+                        scrollableContainerRefs.current.delete(index);
+                      }
+                    }}
+                    className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
+                  >
                     <PlayersView 
                       players={resolvePlayers(set.playerIds)} 
                       gameEntries={set.gameEntries}
