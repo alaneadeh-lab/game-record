@@ -422,6 +422,15 @@ function App() {
 
   const currentSet = playerSets[currentSetIndex];
 
+  // Pre-calculate all set stats once (at component level to avoid hooks in loops)
+  const allSetStats = useMemo(() => {
+    const statsMap = new Map<string, ReturnType<typeof calculatePlayerStatsForSet>>();
+    playerSets.forEach(set => {
+      statsMap.set(set.id, calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries));
+    });
+    return statsMap;
+  }, [playerSets, allPlayers]);
+
   if (!currentSet) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-casino-felt">
@@ -542,17 +551,8 @@ function App() {
         />
       )}
 
-      {/* Pre-calculate all set stats once (outside render to avoid hooks in loops) */}
-      {(() => {
-        const allSetStats = useMemo(() => {
-          const statsMap = new Map<string, ReturnType<typeof calculatePlayerStatsForSet>>();
-          playerSets.forEach(set => {
-            statsMap.set(set.id, calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries));
-          });
-          return statsMap;
-        }, [playerSets, allPlayers]);
-
-        return !showAdmin && !showPlayerInventory ? (
+      {/* Main Players View with Swipe Animation */}
+      {!showAdmin && !showPlayerInventory && (
           <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-hidden">
             {/* Swipeable Container */}
             <div
@@ -604,8 +604,7 @@ function App() {
               })}
             </div>
           </div>
-        ) : null;
-      })()}
+      )}
 
       {/* Game Entry Form Modal */}
       {showGameForm && currentSet && !showAdmin && (
