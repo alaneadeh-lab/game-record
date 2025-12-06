@@ -56,36 +56,24 @@ function App() {
             sets: appData.sets,
           });
         } else {
-          // Reset all player stats to 0 (stats are per-set, not global)
-          // Players are shared across sets, but stats are calculated per-set
-          const playersWithResetStats = appData.allPlayers.map(p => ({
-            ...p,
-            points: 0,
-            fatts: 0,
-            goldMedals: 0,
-            silverMedals: 0,
-            bronzeMedals: 0,
-            tomatoes: 0,
-          }));
-          setAllPlayers(playersWithResetStats);
+          // Preserve player data as loaded from storage (including stats)
+          // Stats are calculated per-set when displaying, but we preserve what was saved
+          setAllPlayers(appData.allPlayers);
         }
         
         setPlayerSets(appData.sets);
       } catch (error) {
         console.error('Failed to load data:', error);
-        const appData = await storageService.loadAppData();
-        // Reset all player stats to 0 (stats are per-set, not global)
-        const playersWithResetStats = appData.allPlayers.map(p => ({
-          ...p,
-          points: 0,
-          fatts: 0,
-          goldMedals: 0,
-          silverMedals: 0,
-          bronzeMedals: 0,
-          tomatoes: 0,
-        }));
-        setAllPlayers(playersWithResetStats);
-        setPlayerSets(appData.sets);
+        // On error, try to load again but preserve what's loaded
+        try {
+          const appData = await storageService.loadAppData();
+          setAllPlayers(appData.allPlayers || []);
+          setPlayerSets(appData.sets || []);
+        } catch (retryError) {
+          console.error('Failed to load data on retry:', retryError);
+          setAllPlayers([]);
+          setPlayerSets([]);
+        }
       } finally {
         setIsLoading(false);
       }
