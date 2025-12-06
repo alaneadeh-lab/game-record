@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PokerAnimation from './PokerAnimation';
+import TiredEmojiAnimation from './TiredEmojiAnimation';
 import Crown from './Crown';
 import FlySwarm from './FlySwarm';
 import type { Player } from '../types';
@@ -19,6 +20,19 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   
   // Get player ranks (only needed for points row to show crown/fly animations)
   const ranks = isPoints ? getPlayerRank(players) : {};
+  
+  // Alternate between poker animation and tired emoji for fatt leader
+  const [showPokerAnimation, setShowPokerAnimation] = useState(true);
+  
+  useEffect(() => {
+    if (isPoints) return; // Only alternate for fatts row
+    
+    const interval = setInterval(() => {
+      setShowPokerAnimation(prev => !prev);
+    }, 1200); // Alternate every 1.2 seconds
+    
+    return () => clearInterval(interval);
+  }, [isPoints]);
   
   const getGradient = () => {
     if (isPoints) {
@@ -76,10 +90,19 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
                 </div>
               </div>
               {isFattLeader && (
-                <PokerAnimation
-                  size={64}
-                  className="absolute -top-8 -right-4 z-50"
-                />
+                <>
+                  {showPokerAnimation ? (
+                    <PokerAnimation
+                      size={64}
+                      className="absolute -top-8 -right-4 z-50"
+                    />
+                  ) : (
+                    <TiredEmojiAnimation
+                      size={64}
+                      className="absolute -top-8 -right-4 z-50"
+                    />
+                  )}
+                </>
               )}
             </div>
           );
