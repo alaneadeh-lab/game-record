@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, Plus } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
 import { PinModal } from './components/PinModal';
 import { SetManagerModal } from './components/SetManagerModal';
 import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
+import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
-import type { PlayerSet, Player, AppData } from './types';
+import { applyGameEntry, recalculateMedals } from './utils/gameLogic';
+import type { PlayerSet, Player, AppData, GameEntry } from './types';
 
 function App() {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
@@ -19,6 +21,7 @@ function App() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [showNewSetSelector, setShowNewSetSelector] = useState(false);
   const [showSetMenu, setShowSetMenu] = useState(false);
+  const [showGameForm, setShowGameForm] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [storageStatus, setStorageStatus] = useState<ReturnType<typeof checkLocalStorageStatus> | null>(null);
 
@@ -207,6 +210,61 @@ function App() {
     }
   }, [playerSets.length]);
 
+  const handleSwipeLeft = useCallback(() => {
+    // Swipe left - go to next set
+    if (playerSets.length > 0) {
+      const nextIndex = (currentSetIndex + 1) % playerSets.length;
+      setCurrentSetIndex(nextIndex);
+    }
+  }, [currentSetIndex, playerSets.length]);
+
+  const handleSwipeRight = useCallback(() => {
+    // Swipe right - go to previous set
+    if (playerSets.length > 0) {
+      const prevIndex = currentSetIndex === 0 ? playerSets.length - 1 : currentSetIndex - 1;
+      setCurrentSetIndex(prevIndex);
+    }
+  }, [currentSetIndex, playerSets.length]);
+
+  const handleSaveGameFromMain = useCallback((entryData: Omit<GameEntry, 'id' | 'date'>) => {
+    const set = playerSets[currentSetIndex];
+    if (!set) return;
+
+    const setPlayers = resolvePlayers(set.playerIds);
+    const newEntry: GameEntry = {
+      ...entryData,
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+    };
+
+    // Apply new entry to global players
+    const playersAfterApply = applyGameEntry(setPlayers, newEntry);
+    const updatedEntries = [...set.gameEntries, newEntry];
+    
+    // Recalculate medals from all game entries for this set
+    const playersWithMedals = recalculateMedals(playersAfterApply, updatedEntries);
+    
+    // Update global players
+    setAllPlayers(prev => {
+      const updated = [...prev];
+      playersWithMedals.forEach(updatedPlayer => {
+        const index = updated.findIndex(p => p.id === updatedPlayer.id);
+        if (index !== -1) {
+          updated[index] = updatedPlayer;
+        }
+      });
+      return updated;
+    });
+
+    // Update the set with new game entry
+    handleUpdateSet({
+      ...set,
+      gameEntries: updatedEntries,
+    });
+
+    setShowGameForm(false);
+  }, [currentSetIndex, playerSets, resolvePlayers, handleUpdateSet]);
+
   const handleAdminClick = () => {
     if (showAdmin) {
       setShowAdmin(false);
@@ -351,27 +409,68 @@ function App() {
           <PlayersView 
             players={resolvePlayers(currentSet.playerIds)} 
             gameEntries={currentSet.gameEntries}
+            onSwipeLeft={handleSwipeLeft}
+            onSwipeRight={handleSwipeRight}
           />
         </div>
       )}
 
+      {/* Game Entry Form Modal */}
+      {showGameForm && currentSet && !showAdmin && (
+        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm pointer-events-auto overflow-y-auto">
+          <div className="relative z-50 min-h-full bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 p-4">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white rounded-2xl p-6 shadow-3d">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-800">Add New Game</h2>
+                  <button
+                    onClick={() => setShowGameForm(false)}
+                    className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
+                  >
+                    <span className="text-xl">✕</span>
+                  </button>
+                </div>
+                <GameEntryForm
+                  players={resolvePlayers(currentSet.playerIds)}
+                  onSave={handleSaveGameFromMain}
+                  onCancel={() => setShowGameForm(false)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Admin Button */}
-      <button
-        onClick={handleAdminClick}
-        className={`fixed bottom-4 right-4 w-16 h-16 bg-gradient-to-br ${
-          showAdmin 
-            ? 'from-red-500 to-red-600' 
-            : 'from-purple-600 to-pink-600'
-        } text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d z-50`}
-        aria-label={showAdmin ? "Close admin" : "Open admin"}
-      >
-        {showAdmin ? (
-          <span className="text-2xl">✕</span>
-        ) : (
-          <Settings className="w-7 h-7" />
+      {/* Action Buttons - Bottom Right */}
+      <div className="fixed bottom-4 right-4 flex gap-3 z-50">
+        {/* Add Game Button */}
+        {!showAdmin && !showPlayerInventory && currentSet && (
+          <button
+            onClick={() => setShowGameForm(true)}
+            className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+            aria-label="Add game"
+          >
+            <Plus className="w-7 h-7" />
+          </button>
         )}
-      </button>
+        
+        {/* Admin Button */}
+        <button
+          onClick={handleAdminClick}
+          className={`w-16 h-16 bg-gradient-to-br ${
+            showAdmin 
+              ? 'from-red-500 to-red-600' 
+              : 'from-purple-600 to-pink-600'
+          } text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d`}
+          aria-label={showAdmin ? "Close admin" : "Open admin"}
+        >
+          {showAdmin ? (
+            <span className="text-2xl">✕</span>
+          ) : (
+            <Settings className="w-7 h-7" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }
