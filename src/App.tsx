@@ -8,6 +8,7 @@ import { PlayerSetSelector } from './components/PlayerSetSelector';
 import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
 import { calculatePlayerStatsForSet } from './utils/gameLogic';
+import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/dataRecovery';
 import type { PlayerSet, Player, AppData, GameEntry } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -25,13 +26,30 @@ function App() {
   const [showGameForm, setShowGameForm] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [storageStatus, setStorageStatus] = useState<ReturnType<typeof checkLocalStorageStatus> | null>(null);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
-  // Check localStorage status on mount
+  // Check localStorage status on mount and check for recoverable data
   useEffect(() => {
     const status = checkLocalStorageStatus();
     setStorageStatus(status);
     if (!status.available || !status.working) {
       console.error('⚠️ localStorage issue detected:', status.error);
+    }
+
+    // Check if using MongoDB and if there's localStorage data to recover
+    const useMongoDB = import.meta.env.VITE_API_URL !== undefined;
+    if (useMongoDB) {
+      const checkResult = checkLocalStorageData();
+      if (checkResult.exists && checkResult.data) {
+        const hasRealData = checkResult.data.allPlayers.length > 0 || checkResult.data.sets.length > 0;
+        if (hasRealData) {
+          console.log('📦 Found localStorage data that can be recovered!');
+          setRecoveryStatus('found');
+          setShowRecoveryModal(true);
+        }
+      }
     }
   }, []);
 
