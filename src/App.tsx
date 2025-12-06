@@ -420,9 +420,8 @@ function App() {
     );
   }
 
-  const currentSet = playerSets[currentSetIndex];
-
   // Pre-calculate all set stats once (at component level to avoid hooks in loops)
+  // MUST be before any early returns to maintain consistent hook order
   const allSetStats = useMemo(() => {
     const statsMap = new Map<string, ReturnType<typeof calculatePlayerStatsForSet>>();
     playerSets.forEach(set => {
@@ -430,6 +429,8 @@ function App() {
     });
     return statsMap;
   }, [playerSets, allPlayers]);
+
+  const currentSet = playerSets[currentSetIndex];
 
   if (!currentSet) {
     return (
