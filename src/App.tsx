@@ -79,7 +79,7 @@ function App() {
     if (playerSets.length === 0 && allPlayers.length === 0) return;
 
     setSaveStatus('saving');
-
+    
     const timeoutId = setTimeout(async () => {
       try {
         const appData: AppData = {
@@ -216,11 +216,20 @@ function App() {
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
   const scrollableContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const previousSetIndexRef = useRef<number>(currentSetIndex);
 
   const handleSwipeLeft = useCallback(() => {
     // Swipe left - go to next set
     if (playerSets.length > 0) {
+      // Reset scroll of the set we're leaving
+      const leavingIndex = currentSetIndex;
+      const leavingContainer = scrollableContainerRefs.current.get(leavingIndex);
+      if (leavingContainer) {
+        leavingContainer.scrollTop = 0;
+      }
+      
       const nextIndex = (currentSetIndex + 1) % playerSets.length;
+      previousSetIndexRef.current = currentSetIndex;
       setCurrentSetIndex(nextIndex);
     }
   }, [currentSetIndex, playerSets.length]);
@@ -228,7 +237,15 @@ function App() {
   const handleSwipeRight = useCallback(() => {
     // Swipe right - go to previous set
     if (playerSets.length > 0) {
+      // Reset scroll of the set we're leaving
+      const leavingIndex = currentSetIndex;
+      const leavingContainer = scrollableContainerRefs.current.get(leavingIndex);
+      if (leavingContainer) {
+        leavingContainer.scrollTop = 0;
+      }
+      
       const prevIndex = currentSetIndex === 0 ? playerSets.length - 1 : currentSetIndex - 1;
+      previousSetIndexRef.current = currentSetIndex;
       setCurrentSetIndex(prevIndex);
     }
   }, [currentSetIndex, playerSets.length]);
@@ -586,12 +603,12 @@ function App() {
               <div className="bg-white rounded-2xl p-6 shadow-3d">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-800">Add New Game</h2>
-                  <button
+      <button
                     onClick={() => setShowGameForm(false)}
                     className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
-                  >
+      >
                     <span className="text-xl">✕</span>
-                  </button>
+      </button>
                 </div>
                 <GameEntryForm
                   players={resolvePlayers(currentSet.playerIds)}
