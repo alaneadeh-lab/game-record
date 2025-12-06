@@ -1,6 +1,4 @@
 import React from 'react';
-import Crown from './Crown';
-import FlySwarm from './FlySwarm';
 import type { Player } from '../types';
 
 interface PlayerCardProps {
@@ -48,14 +46,6 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
 
   return (
     <div className="relative w-full flex flex-col items-center">
-      {/* Animated Crown - Outside the card frame */}
-      {rank === 1 && (
-        <Crown
-          size={60}
-          className="absolute -top-7 -right-2 z-50 pointer-events-none animate-[float_2.4s_ease-in-out_infinite] drop-shadow-[0_0_12px_rgba(255,215,0,0.9)]"
-        />
-      )}
-
       {/* Player Card Frame */}
       <div
         className={`w-full h-[140px] sm:h-[160px] rounded-2xl relative ${rankStyles.border} ${rankStyles.shadow} ${rankStyles.innerShadow}`}
@@ -87,14 +77,6 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
         {/* Inner bevel effect */}
         <div className="absolute inset-0 rounded-xl border border-white/20 pointer-events-none z-10" />
       </div>
-
-      {/* Fly Swarm for Last Place - Outside the card frame, positioned after card */}
-      {rank === 4 && (
-        <FlySwarm
-          size={112}
-          className="absolute -top-7 -right-2 z-50 pointer-events-none"
-        />
-      )}
 
       {/* Player Name - Below Card */}
       <div className="mt-2 text-white text-base font-semibold text-center">
