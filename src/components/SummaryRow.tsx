@@ -32,17 +32,17 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
     
     const scheduleNext = () => {
       if (showPokerAnimation) {
-        // Show poker animation for 1.8 seconds (3 * 0.6)
+        // Show poker animation for 4 seconds
         timeoutId = setTimeout(() => {
           setShowPokerAnimation(false);
           scheduleNext();
-        }, 1800);
+        }, 4000);
       } else {
-        // Show tired emoji for 0.6 seconds (1 * 0.6)
+        // Show tired emoji for 1.5 seconds
         timeoutId = setTimeout(() => {
           setShowPokerAnimation(true);
           scheduleNext();
-        }, 600);
+        }, 1500);
       }
     };
     
