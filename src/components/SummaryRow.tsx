@@ -55,22 +55,24 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   
   const getGradient = () => {
     if (isPoints) {
-      // Bright, playful pink/rose gradient
-      return 'from-pink-400 via-rose-500 to-pink-600';
+      return 'from-blue-500 via-blue-600 to-blue-700';
     }
-    // Bright, playful cyan/sky blue gradient
-    return 'from-cyan-400 via-sky-500 to-cyan-600';
+    return 'from-purple-500 via-purple-600 to-purple-700';
   };
 
   return (
     <div className="card-3d rounded-2xl pt-2 pb-4 px-4 sm:pt-3 sm:pb-5 sm:px-6 bg-gradient-to-br from-white to-gray-50 shadow-3d">
-      <h3 
-        className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-center text-gray-800"
-        style={{
-          textShadow: '2px 2px 4px rgba(0,0,0,0.3), 0px 1px 2px rgba(255,255,255,0.8)',
-        }}
-      >
-        {title}
+      <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-center text-gray-800 flex items-center justify-center gap-2">
+        <span className="text-2xl sm:text-3xl">{isPoints ? '🥇' : '😂'}</span>
+        <span 
+          style={{
+            textShadow: '0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6), 0 0 30px rgba(255,255,255,0.4), 2px 2px 4px rgba(0,0,0,0.3)',
+            filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.9))',
+          }}
+        >
+          {title}
+        </span>
+        <span className="text-2xl sm:text-3xl">{isPoints ? '🥇' : '😂'}</span>
       </h3>
       <div className="grid grid-cols-4 gap-3 sm:gap-4">
         {players.map((player) => {

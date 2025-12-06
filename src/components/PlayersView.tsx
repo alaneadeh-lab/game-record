@@ -38,15 +38,15 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
         ))}
       </div>
 
-      {/* Points Row */}
-      <div className="mt-8 flex-shrink-0">
-        <SummaryRow players={sortedPlayers} type="points" title="منصة التتويج" />
-      </div>
+              {/* Points Row */}
+              <div className="mt-8 flex-shrink-0">
+                <SummaryRow players={sortedPlayers} type="points" title="منصة التتويج" />
+              </div>
 
-      {/* Fatts Row */}
-      <div className="mt-6 flex-shrink-0">
-        <SummaryRow players={sortedPlayers} type="fatts" title=" فت فت" />
-      </div>
+              {/* Fatts Row */}
+              <div className="mt-6 flex-shrink-0">
+                <SummaryRow players={sortedPlayers} type="fatts" title="فتّـــة" />
+              </div>
 
       {/* Medals Table */}
       <div className="mt-8 w-full bg-white rounded-2xl shadow-3d p-4 sm:p-6">
