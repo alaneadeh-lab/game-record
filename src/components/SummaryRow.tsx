@@ -69,7 +69,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
 
   return (
     <div className="card-3d rounded-2xl pt-2 pb-4 px-4 sm:pt-3 sm:pb-5 sm:px-6 bg-gradient-to-br from-white to-gray-50 shadow-3d">
-      <h3 className={`text-base sm:text-lg font-bold mb-3 sm:mb-4 text-center ${getTextColor()}`}>
+      <h3 
+        className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-center text-gray-800"
+        style={{
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3), 0px 1px 2px rgba(255,255,255,0.8)',
+        }}
+      >
         {title}
       </h3>
       <div className="grid grid-cols-4 gap-3 sm:gap-4">
