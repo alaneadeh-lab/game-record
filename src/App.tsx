@@ -493,6 +493,18 @@ function App() {
       if (checkResult.exists && checkResult.data) {
         const hasRealData = checkResult.data.allPlayers.length > 0 || checkResult.data.sets.length > 0;
         if (hasRealData) {
+          // Show stats in console and alert
+          if (checkResult.stats) {
+            console.log('📦 Recovery data preview:', checkResult.stats);
+            const statsMsg = `Found in localStorage:\n` +
+              `- ${checkResult.stats.players} players\n` +
+              `- ${checkResult.stats.sets} sets\n` +
+              `- ${checkResult.stats.totalGames} total games\n` +
+              `- ${checkResult.stats.playersWithPhotos} players with photos\n` +
+              `- ${checkResult.stats.playersWithNames} custom player names\n\n` +
+              `Click "Upload to MongoDB" to restore this data.`;
+            alert(statsMsg);
+          }
           setRecoveryStatus('found');
           setShowRecoveryModal(true);
         } else {
