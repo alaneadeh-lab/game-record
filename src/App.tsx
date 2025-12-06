@@ -216,7 +216,6 @@ function App() {
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
   const scrollableContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const previousSetIndexRef = useRef<number>(currentSetIndex);
 
   const handleSwipeLeft = useCallback(() => {
     // Swipe left - go to next set
@@ -229,7 +228,6 @@ function App() {
       }
       
       const nextIndex = (currentSetIndex + 1) % playerSets.length;
-      previousSetIndexRef.current = currentSetIndex;
       setCurrentSetIndex(nextIndex);
     }
   }, [currentSetIndex, playerSets.length]);
