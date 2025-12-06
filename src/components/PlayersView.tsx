@@ -1,4 +1,5 @@
 import React from 'react';
+import { Plus, Settings } from 'lucide-react';
 import { PlayerCard } from './PlayerCard';
 import { SummaryRow } from './SummaryRow';
 import { MedalsTable } from './MedalsTable';
@@ -9,11 +10,15 @@ import type { Player, GameEntry } from '../types';
 interface PlayersViewProps {
   players: Player[];
   gameEntries?: GameEntry[];
+  onAddGameClick?: () => void;
+  onAdminClick?: () => void;
 }
 
 export const PlayersView: React.FC<PlayersViewProps> = ({ 
   players, 
   gameEntries = [],
+  onAddGameClick,
+  onAdminClick,
 }) => {
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
@@ -52,6 +57,31 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
       {gameEntries.length > 0 && (
         <div className="mt-6 w-full">
           <GamesHistoryTable gameEntries={gameEntries} players={sortedPlayers} />
+        </div>
+      )}
+
+      {/* Action Buttons - Under Game History Table */}
+      {(onAddGameClick || onAdminClick) && (
+        <div className="flex gap-3 justify-end pr-4 pb-4 pt-4 mt-4">
+          {onAddGameClick && (
+            <button
+              onClick={onAddGameClick}
+              className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+              aria-label="Add game"
+            >
+              <Plus className="w-7 h-7" />
+            </button>
+          )}
+          
+          {onAdminClick && (
+            <button
+              onClick={onAdminClick}
+              className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+              aria-label="Open admin"
+            >
+              <Settings className="w-7 h-7" />
+            </button>
+          )}
         </div>
       )}
     </div>
