@@ -528,6 +528,69 @@ function App() {
         />
       )}
 
+      {/* Data Recovery Modal */}
+      {showRecoveryModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-3d p-6 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Recover Data from localStorage</h2>
+            
+            {recoveryStatus === 'found' && (
+              <>
+                <p className="text-gray-700 mb-4">
+                  We found data in your browser's localStorage that hasn't been uploaded to MongoDB yet.
+                  Would you like to upload it now?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRecoveryUpload}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-3 px-4 rounded-lg shadow-3d hover:shadow-3d-hover button-3d"
+                  >
+                    Upload to MongoDB
+                  </button>
+                  <button
+                    onClick={() => setShowRecoveryModal(false)}
+                    className="flex-1 bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg shadow-3d hover:shadow-3d-hover button-3d"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </>
+            )}
+
+            {recoveryStatus === 'uploading' && (
+              <div className="text-center py-4">
+                <div className="text-4xl mb-4 animate-spin">⏳</div>
+                <p className="text-gray-700">Uploading data to MongoDB...</p>
+              </div>
+            )}
+
+            {recoveryStatus === 'success' && (
+              <div className="text-center py-4">
+                <div className="text-4xl mb-4">✅</div>
+                <p className="text-gray-700 mb-4">Data uploaded successfully! Reloading page...</p>
+              </div>
+            )}
+
+            {recoveryStatus === 'error' && (
+              <>
+                <div className="text-center py-4">
+                  <div className="text-4xl mb-4">❌</div>
+                  <p className="text-red-700 mb-4">
+                    Failed to upload data: {recoveryError || 'Unknown error'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowRecoveryModal(false)}
+                  className="w-full bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg shadow-3d hover:shadow-3d-hover button-3d"
+                >
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* New Set Selector */}
       {showNewSetSelector && (
         <PlayerSetSelector
