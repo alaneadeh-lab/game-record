@@ -9,9 +9,11 @@ interface SingleFlyProps {
 
 const SingleFly: React.FC<SingleFlyProps> = ({ size = 32, className }) => {
   // Position is in % inside the local container (0–100)
-  const [pos, setPos] = useState({ x: 70, y: 40 }); // start near top-right-ish
+  // Start at top-right corner, then hover in and out
+  const [pos, setPos] = useState({ x: 90, y: 20 }); // start at top-right corner
   const [tilt, setTilt] = useState(0);
   const [scale, setScale] = useState(1);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -20,19 +22,32 @@ const SingleFly: React.FC<SingleFlyProps> = ({ size = 32, className }) => {
     const tick = () => {
       if (!isMounted) return;
 
-      setPos((prev) => {
-        const jitter = 12; // how far each hop can move (in %)
-        const x = Math.min(95, Math.max(40, prev.x + (Math.random() - 0.5) * jitter));
-        const y = Math.min(80, Math.max(15, prev.y + (Math.random() - 0.5) * jitter));
-        return { x, y };
-      });
+      // Alternate between hovering near the corner and moving away
+      // Create a pattern where it hovers in and out of the top-right corner
+      const isHoveringNear = Math.random() > 0.5;
+      
+      if (isHoveringNear) {
+        // Hover near top-right corner (85-95% x, 15-25% y)
+        setPos({
+          x: 85 + Math.random() * 10,  // 85-95%
+          y: 15 + Math.random() * 10,  // 15-25%
+        });
+        setIsVisible(true);
+      } else {
+        // Move further away from corner (60-80% x, 30-50% y)
+        setPos({
+          x: 60 + Math.random() * 20,  // 60-80%
+          y: 30 + Math.random() * 20,  // 30-50%
+        });
+        setIsVisible(true);
+      }
 
-      // Tiny random rotation & scale for "buzz"
+      // Random rotation & scale for "buzz"
       setTilt((Math.random() - 0.5) * 40);        // -20° to 20°
       setScale(0.9 + Math.random() * 0.3);        // 0.9–1.2
 
       // Random delay between hops (so it feels organic)
-      const delay = 120 + Math.random() * 240;    // 120–360 ms
+      const delay = 200 + Math.random() * 400;    // 200–600 ms (slower for more intentional movement)
       timer = window.setTimeout(tick, delay);
     };
 
@@ -46,6 +61,8 @@ const SingleFly: React.FC<SingleFlyProps> = ({ size = 32, className }) => {
     };
   }, []);
 
+  if (!isVisible) return null;
+
   return (
     <div
       className={["pointer-events-none select-none", className]
@@ -58,7 +75,7 @@ const SingleFly: React.FC<SingleFlyProps> = ({ size = 32, className }) => {
         fontSize: size,
         transform: `translate(-50%, -50%) rotate(${tilt}deg) scale(${scale})`,
         transition:
-          "top 160ms ease-out, left 160ms ease-out, transform 160ms ease-out",
+          "top 300ms ease-in-out, left 300ms ease-in-out, transform 200ms ease-out",
       }}
     >
       🪰

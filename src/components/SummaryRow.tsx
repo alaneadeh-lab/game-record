@@ -90,16 +90,13 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
                 />
               )}
               
-              {/* Fly Swarm for Last Place (Points row only) */}
+              {/* Single Fly for Last Place (Points row only) */}
               {isLastPlace && (
-                <div className="absolute -top-8 -right-2 z-50 pointer-events-none w-[112px] h-[112px]">
-                  {[...Array(7)].map((_, i) => (
-                    <SingleFly
-                      key={i}
-                      size={24}
-                      className=""
-                    />
-                  ))}
+                <div className="absolute -top-8 -right-2 z-50 pointer-events-none w-[80px] h-[80px]">
+                  <SingleFly
+                    size={32}
+                    className=""
+                  />
                 </div>
               )}
               
