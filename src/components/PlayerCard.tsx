@@ -1,5 +1,8 @@
 import React from 'react';
 import FirstPlaceBadge from './FirstPlaceBadge';
+import SecondPlaceBadge from './SecondPlaceBadge';
+import ThirdPlaceBadge from './ThirdPlaceBadge';
+import TomatoBadge from './TomatoBadge';
 import type { Player } from '../types';
 
 interface PlayerCardProps {
@@ -47,9 +50,27 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
 
   return (
     <div className="relative w-full flex flex-col items-center">
-      {/* First Place Badge - Above the profile box */}
+      {/* Rank Badges - Above the profile box */}
       {rank === 1 && (
         <FirstPlaceBadge
+          size={80}
+          className="absolute -top-10 z-50 pointer-events-none"
+        />
+      )}
+      {rank === 2 && (
+        <SecondPlaceBadge
+          size={80}
+          className="absolute -top-10 z-50 pointer-events-none"
+        />
+      )}
+      {rank === 3 && (
+        <ThirdPlaceBadge
+          size={80}
+          className="absolute -top-10 z-50 pointer-events-none"
+        />
+      )}
+      {rank === 4 && (
+        <TomatoBadge
           size={80}
           className="absolute -top-10 z-50 pointer-events-none"
         />
