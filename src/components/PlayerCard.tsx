@@ -49,7 +49,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
   const rankStyles = getRankStyles();
 
   return (
-    <div className={`relative w-full flex flex-col items-center ${rank === 1 ? 'first-place-glow' : ''}`}>
+    <div className="relative w-full flex flex-col items-center">
       {/* Rank Badges - Above the profile box */}
       {rank === 1 && (
         <FirstPlaceBadge
