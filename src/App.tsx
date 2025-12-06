@@ -213,6 +213,7 @@ function App() {
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [swipeStarted, setSwipeStarted] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
 
@@ -234,7 +235,8 @@ function App() {
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchStartX(e.touches[0].clientX);
-    setIsSwiping(true);
+    setIsSwiping(false);
+    setSwipeStarted(false);
     setSwipeOffset(0);
   }, []);
 
@@ -243,27 +245,48 @@ function App() {
     
     const currentX = e.touches[0].clientX;
     const deltaX = currentX - touchStartX;
+    const screenWidth = window.innerWidth;
+    
+    // Require minimum swipe distance (10% of screen width) before starting animation
+    const minSwipeDistance = screenWidth * 0.1;
+    
+    // Only start swiping if movement is significant enough
+    if (Math.abs(deltaX) < minSwipeDistance) {
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      setSwipeStarted(false);
+      return;
+    }
+    
+    // Mark swipe as started
+    if (!swipeStarted) {
+      setIsSwiping(true);
+      setSwipeStarted(true);
+    }
     
     // Calculate swipe offset (percentage of screen width)
-    const screenWidth = window.innerWidth;
-    const offset = (deltaX / screenWidth) * 100;
+    // Subtract the minimum distance from the calculation to avoid jump
+    const adjustedDeltaX = deltaX > 0 
+      ? deltaX - minSwipeDistance 
+      : deltaX + minSwipeDistance;
+    const offset = (adjustedDeltaX / screenWidth) * 100;
     
     // Check boundaries
     const isAtFirst = currentSetIndex === 0;
     const isAtLast = currentSetIndex === playerSets.length - 1;
     
-    // Apply resistance at boundaries (reduce movement by 50%)
-    let adjustedOffset = offset;
+    // Apply resistance at boundaries (reduce movement by 70%)
+    let finalOffset = offset;
     if (deltaX > 0 && isAtFirst) {
-      // Swiping right at first set - apply resistance
-      adjustedOffset = offset * 0.3;
+      // Swiping right at first set - apply strong resistance
+      finalOffset = offset * 0.3;
     } else if (deltaX < 0 && isAtLast) {
-      // Swiping left at last set - apply resistance
-      adjustedOffset = offset * 0.3;
+      // Swiping left at last set - apply strong resistance
+      finalOffset = offset * 0.3;
     }
     
-    setSwipeOffset(adjustedOffset);
-  }, [touchStartX, currentSetIndex, playerSets.length]);
+    setSwipeOffset(finalOffset);
+  }, [touchStartX, currentSetIndex, playerSets.length, swipeStarted]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartX === null) {
