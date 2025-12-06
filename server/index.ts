@@ -62,9 +62,33 @@ const corsOptions = {
   credentials: false,
 };
 
-// Middleware
+// Middleware - CORS must come first
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' })); // Support large Base64 images
+
+// Helper to add CORS headers manually if needed
+const addCorsHeaders = (req: express.Request, res: express.Response) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    const customDomain = 'https://www.le3beh-tracker.com';
+    const productionUrl = process.env.FRONTEND_URL;
+    
+    if (
+      !productionUrl || // Development mode - allow all
+      origin === productionUrl ||
+      origin === customDomain ||
+      origin === 'https://le3beh-tracker.com' ||
+      origin === 'http://www.le3beh-tracker.com' ||
+      origin === 'http://le3beh-tracker.com' ||
+      /^https:\/\/[^/]+\.vercel\.app$/.test(origin)
+    ) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Credentials', 'false');
+    }
+  }
+};
 
 let db: any = null;
 let client: MongoClient | null = null;
@@ -170,6 +194,7 @@ app.get('/health', async (req, res) => {
 app.get('/api/app-data', async (req, res) => {
   try {
     if (!db) {
+      addCorsHeaders(req, res);
       return res.status(503).json({ error: 'Database not connected' });
     }
 
@@ -200,6 +225,7 @@ app.get('/api/app-data', async (req, res) => {
 app.post('/api/app-data/upload', async (req, res) => {
   try {
     if (!db) {
+      addCorsHeaders(req, res);
       return res.status(503).json({ error: 'Database not connected' });
     }
 
@@ -207,6 +233,7 @@ app.post('/api/app-data/upload', async (req, res) => {
     const data: AppData = req.body.data;
 
     if (!data || !data.allPlayers || !data.sets) {
+      addCorsHeaders(req, res);
       return res.status(400).json({ error: 'Invalid data format. Expected: { allPlayers: [], sets: [] }' });
     }
 
@@ -240,6 +267,7 @@ app.post('/api/app-data/upload', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error uploading app data:', error);
+    addCorsHeaders(req, res);
     res.status(500).json({ error: 'Failed to upload app data' });
   }
 });
@@ -248,6 +276,7 @@ app.post('/api/app-data/upload', async (req, res) => {
 app.put('/api/app-data', async (req, res) => {
   try {
     if (!db) {
+      addCorsHeaders(req, res);
       return res.status(503).json({ error: 'Database not connected' });
     }
 
@@ -255,6 +284,7 @@ app.put('/api/app-data', async (req, res) => {
     const data: AppData = req.body.data;
 
     if (!data || !data.allPlayers || !data.sets) {
+      addCorsHeaders(req, res);
       return res.status(400).json({ error: 'Invalid data format' });
     }
 
@@ -279,8 +309,25 @@ app.put('/api/app-data', async (req, res) => {
     res.json({ success: true, message: 'Data saved successfully' });
   } catch (error) {
     console.error('❌ Error saving app data:', error);
+    addCorsHeaders(req, res);
     res.status(500).json({ error: 'Failed to save app data' });
   }
+});
+
+// Global error handler - must be last
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  addCorsHeaders(req, res);
+  console.error('❌ Unhandled server error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// 404 handler
+app.use((req: express.Request, res: express.Response) => {
+  addCorsHeaders(req, res);
+  res.status(404).json({ error: 'Not found' });
 });
 
 // Start server
