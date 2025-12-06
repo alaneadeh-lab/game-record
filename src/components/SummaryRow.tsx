@@ -60,13 +60,6 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
     return 'from-purple-500 via-purple-600 to-purple-700';
   };
 
-  const getTextColor = () => {
-    if (isPoints) {
-      return 'text-white';
-    }
-    return 'text-white';
-  };
-
   return (
     <div className="card-3d rounded-2xl pt-2 pb-4 px-4 sm:pt-3 sm:pb-5 sm:px-6 bg-gradient-to-br from-white to-gray-50 shadow-3d">
       <h3 
