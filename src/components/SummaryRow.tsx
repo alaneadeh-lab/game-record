@@ -68,7 +68,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
               <div
                 className={`embossed rounded-2xl px-4 py-4 bg-gradient-to-br ${getGradient()} text-center transform transition-all duration-200 hover:scale-105 flex flex-col justify-center shadow-3d relative`}
               >
-                <div className="text-xs sm:text-sm font-semibold text-white mb-1 sm:mb-2 opacity-90 truncate">
+                <div className={`font-semibold text-white mb-1 sm:mb-2 opacity-90 truncate ${isPoints ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
                   {player.name}
                 </div>
                 <div className="text-lg sm:text-xl font-bold text-white drop-shadow-lg">
