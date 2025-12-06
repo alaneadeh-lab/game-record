@@ -57,7 +57,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="flex-1 flex flex-col justify-between pt-10 sm:pt-12 px-2 sm:px-4 pb-24 relative z-10 min-h-0 gap-3 touch-none"
+      className="flex-1 flex flex-col justify-between pt-10 sm:pt-12 px-2 sm:px-4 pb-32 relative z-10 min-h-0 gap-3 touch-none"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

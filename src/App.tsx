@@ -19,6 +19,7 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPlayerInventory, setShowPlayerInventory] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showPinModalForGame, setShowPinModalForGame] = useState(false);
   const [showNewSetSelector, setShowNewSetSelector] = useState(false);
   const [showSetMenu, setShowSetMenu] = useState(false);
   const [showGameForm, setShowGameForm] = useState(false);
@@ -278,6 +279,15 @@ function App() {
     setShowAdmin(true);
   };
 
+  const handlePinSuccessForGame = () => {
+    setShowPinModalForGame(false);
+    setShowGameForm(true);
+  };
+
+  const handleAddGameClick = () => {
+    setShowPinModalForGame(true);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-casino-felt">
@@ -341,12 +351,21 @@ function App() {
         </div>
       )}
 
-      {/* Pin Modal */}
+      {/* Pin Modal for Admin */}
       {showPinModal && (
         <PinModal
           correctPin="88"
           onSuccess={handlePinSuccess}
           onCancel={() => setShowPinModal(false)}
+        />
+      )}
+
+      {/* Pin Modal for Add Game */}
+      {showPinModalForGame && (
+        <PinModal
+          correctPin="88"
+          onSuccess={handlePinSuccessForGame}
+          onCancel={() => setShowPinModalForGame(false)}
         />
       )}
 
@@ -405,13 +424,38 @@ function App() {
 
       {/* Main Players View */}
       {!showAdmin && !showPlayerInventory && (
-        <div className="flex-1 flex flex-col relative z-10 min-h-0">
+        <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto">
           <PlayersView 
             players={resolvePlayers(currentSet.playerIds)} 
             gameEntries={currentSet.gameEntries}
             onSwipeLeft={handleSwipeLeft}
             onSwipeRight={handleSwipeRight}
           />
+          
+          {/* Action Buttons - Bottom Right (inside scrollable area) */}
+          <div className="sticky bottom-4 right-4 flex gap-3 justify-end z-50 pointer-events-none mt-auto pt-4 pb-4">
+            <div className="flex gap-3 pointer-events-auto">
+              {/* Add Game Button */}
+              {currentSet && (
+                <button
+                  onClick={handleAddGameClick}
+                  className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                  aria-label="Add game"
+                >
+                  <Plus className="w-7 h-7" />
+                </button>
+              )}
+              
+              {/* Admin Button */}
+              <button
+                onClick={handleAdminClick}
+                className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
+                aria-label="Open admin"
+              >
+                <Settings className="w-7 h-7" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -441,36 +485,6 @@ function App() {
         </div>
       )}
 
-      {/* Action Buttons - Bottom Right */}
-      <div className="fixed bottom-4 right-4 flex gap-3 z-50">
-        {/* Add Game Button */}
-        {!showAdmin && !showPlayerInventory && currentSet && (
-          <button
-            onClick={() => setShowGameForm(true)}
-            className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
-            aria-label="Add game"
-          >
-            <Plus className="w-7 h-7" />
-          </button>
-        )}
-        
-        {/* Admin Button */}
-        <button
-          onClick={handleAdminClick}
-          className={`w-16 h-16 bg-gradient-to-br ${
-            showAdmin 
-              ? 'from-red-500 to-red-600' 
-              : 'from-purple-600 to-pink-600'
-          } text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d`}
-          aria-label={showAdmin ? "Close admin" : "Open admin"}
-        >
-          {showAdmin ? (
-            <span className="text-2xl">✕</span>
-          ) : (
-            <Settings className="w-7 h-7" />
-          )}
-        </button>
-      </div>
     </div>
   );
 }
