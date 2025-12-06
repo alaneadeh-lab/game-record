@@ -8,8 +8,8 @@ interface SingleFlyProps {
 }
 
 const SingleFly: React.FC<SingleFlyProps> = ({ size = 32, className }) => {
-  // Fixed position at top-right corner
-  const pos = { x: 90, y: 20 }; // top-right corner
+  // Fixed position - will be positioned by parent's absolute positioning
+  // No internal positioning needed since parent handles it
   const [tilt] = useState(0);
   const [scale, setScale] = useState(1);
 
@@ -44,11 +44,8 @@ const SingleFly: React.FC<SingleFlyProps> = ({ size = 32, className }) => {
         .filter(Boolean)
         .join(" ")}
       style={{
-        position: "absolute",
-        top: `${pos.y}%`,
-        left: `${pos.x}%`,
         fontSize: size,
-        transform: `translate(-50%, -50%) rotate(${tilt}deg) scale(${scale})`,
+        transform: `rotate(${tilt}deg) scale(${scale})`,
         transition: "transform 200ms ease-out",
       }}
     >
