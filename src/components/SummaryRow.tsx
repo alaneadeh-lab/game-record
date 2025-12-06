@@ -55,9 +55,11 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
   
   const getGradient = () => {
     if (isPoints) {
-      return 'from-blue-500 via-blue-600 to-blue-700';
+      // Rich red/crimson inspired by hearts/diamonds in playing cards
+      return 'from-red-700 via-red-800 to-red-900';
     }
-    return 'from-purple-500 via-purple-600 to-purple-700';
+    // Dark navy/black inspired by spades/clubs in playing cards
+    return 'from-slate-900 via-slate-800 to-black';
   };
 
   return (
