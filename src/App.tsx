@@ -488,6 +488,21 @@ function App() {
   const currentSet = playerSets[currentSetIndex];
 
   if (!currentSet) {
+    const checkLocalStorageForRecovery = () => {
+      const checkResult = checkLocalStorageData();
+      if (checkResult.exists && checkResult.data) {
+        const hasRealData = checkResult.data.allPlayers.length > 0 || checkResult.data.sets.length > 0;
+        if (hasRealData) {
+          setRecoveryStatus('found');
+          setShowRecoveryModal(true);
+        } else {
+          alert('No data found in localStorage to recover.');
+        }
+      } else {
+        alert('No data found in localStorage. If you had data before, it may have been cleared.');
+      }
+    };
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-casino-felt">
         <div className="text-center">
@@ -499,10 +514,24 @@ function App() {
           </div>
           <button
             onClick={handleCreateSet}
-            className="button-3d bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d"
+            className="button-3d bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d mb-3"
           >
             {allPlayers.length >= 4 ? 'Create New Set' : 'Add Players'}
           </button>
+          
+          {/* Recovery Button */}
+          <div className="mt-4">
+            <button
+              onClick={checkLocalStorageForRecovery}
+              className="button-3d bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d text-sm"
+            >
+              📦 Recover Data from localStorage
+            </button>
+            <div className="text-white opacity-60 text-xs mt-2">
+              Check if your saved data is in localStorage
+            </div>
+          </div>
+
           {allPlayers.length > 0 && allPlayers.length < 4 && (
             <div className="mt-4 text-white opacity-75 text-sm">
               Default players have been created. You can edit their names in the Player Inventory.
