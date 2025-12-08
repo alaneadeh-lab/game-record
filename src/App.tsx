@@ -29,6 +29,7 @@ function App() {
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'default' | 'new'>('default');
 
   // Check localStorage status on mount and check for recoverable data
   useEffect(() => {
@@ -753,6 +754,8 @@ function App() {
                       gameEntries={set.gameEntries}
                       onAddGameClick={handleAddGameClick}
                       onAdminClick={handleAdminClick}
+                      theme={theme}
+                      onThemeChange={setTheme}
                     />
                   </div>
                 </div>
