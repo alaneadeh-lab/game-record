@@ -1,5 +1,6 @@
 import React from 'react';
 import { getPlayerRank } from '../utils/gameLogic';
+import CartoonImage from './CartoonImage';
 import type { Player } from '../types';
 
 interface PodiumNewThemeProps {
@@ -38,7 +39,7 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
                 }} />
               </div>
               {secondPlace.photo ? (
-                <img 
+                <CartoonImage 
                   src={secondPlace.photo} 
                   alt={secondPlace.name}
                   className="w-full h-full object-cover relative z-0"
@@ -85,7 +86,7 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
                 }} />
               </div>
               {firstPlace.photo ? (
-                <img 
+                <CartoonImage 
                   src={firstPlace.photo} 
                   alt={firstPlace.name}
                   className="w-full h-full object-cover relative z-0"
@@ -132,7 +133,7 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
                 }} />
               </div>
               {fourthPlace.photo ? (
-                <img 
+                <CartoonImage 
                   src={fourthPlace.photo} 
                   alt={fourthPlace.name}
                   className="w-full h-full object-cover relative z-0"
