@@ -27,17 +27,30 @@ export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 pt-8 pb-8 px-4 sm:px-6">
-        {/* Podium Section */}
+      <div className="relative z-10 pt-6 pb-8 px-4 sm:px-6">
+        {/* Title - منصة التتويج */}
+        <div className="text-center mb-6">
+          <h1 
+            className="text-4xl sm:text-5xl font-black"
+            style={{
+              color: '#FFD700',
+              textShadow: '0 0 20px rgba(255,215,0,0.8), 0 4px 8px rgba(0,0,0,0.5)',
+            }}
+          >
+            منصة التتويج
+          </h1>
+        </div>
+
+        {/* Podium Section - Only showing 1st, 2nd, and 4th */}
         <PodiumNewTheme players={players} />
 
-        {/* Stats Panel */}
-        <div className="mt-10 sm:mt-12">
+        {/* Fatts Section - قته */}
+        <div className="mt-8 sm:mt-10">
           <StatsPanelNewTheme players={players} />
         </div>
 
         {/* Medals Table */}
-        <div className="mt-10 sm:mt-12">
+        <div className="mt-8 sm:mt-10">
           <MedalsTableNewTheme players={players} />
         </div>
       </div>

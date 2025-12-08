@@ -22,44 +22,42 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
         {/* 2nd Place - Left */}
         {secondPlace && (
           <div className="flex-1 max-w-[140px] sm:max-w-[180px] flex flex-col items-center">
-            {/* Leaf Cluster Behind Badge */}
-            <div className="mb-1 flex gap-1 opacity-80" style={{ filter: 'drop-shadow(0 0 6px rgba(0,255,120,0.4))' }}>
-              <span className="text-xl sm:text-2xl">🍃</span>
-              <span className="text-xl sm:text-2xl">🍃</span>
-            </div>
-            
-            {/* Silver Badge "2" */}
+            {/* Light Blue Badge "2" */}
             <div 
-              className="mb-3 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center border-2 border-white"
+              className="mb-3 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center border-2 border-white"
               style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.35))' }}
             >
               <span className="text-white font-bold text-xl sm:text-2xl">2</span>
             </div>
             
-            {/* Player Frame */}
-            <div className="w-full aspect-[3/4] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border-4 border-gray-300 shadow-[0_0_15px_rgba(255,255,255,0.25),0_0_20px_rgba(200,200,200,0.6)] relative bg-gradient-to-br from-blue-400 to-blue-600">
+            {/* Player Frame with Golden Laurel Wreath Effect */}
+            <div className="relative w-full aspect-square rounded-full overflow-hidden border-4 border-yellow-400 shadow-[0_0_20px_rgba(255,215,0,0.6)] bg-gradient-to-br from-blue-400 to-blue-600">
+              {/* Golden laurel wreath decoration */}
+              <div className="absolute -inset-2 z-10 pointer-events-none">
+                <div className="w-full h-full rounded-full border-4 border-yellow-400/60" style={{
+                  boxShadow: '0 0 15px rgba(255,215,0,0.4), inset 0 0 15px rgba(255,215,0,0.2)'
+                }} />
+              </div>
               {secondPlace.photo ? (
                 <img 
                   src={secondPlace.photo} 
                   alt={secondPlace.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover relative z-0"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 text-white text-4xl sm:text-5xl font-bold">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 text-white text-4xl sm:text-5xl font-bold relative z-0">
                   {secondPlace.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              {/* Inner glow */}
-              <div className="absolute inset-0 border-2 border-white/30 rounded-[2rem] sm:rounded-[2.5rem] pointer-events-none" />
             </div>
             
             {/* Name Label */}
-            <div className="mt-2 text-center">
+            <div className="mt-3 text-center">
               <div 
                 className="font-extrabold text-base sm:text-lg"
                 style={{
-                  color: '#FFD166',
-                  textShadow: '0 0 10px rgba(255, 160, 0, 0.8), 0 2px 4px rgba(0,0,0,0.4)',
+                  color: '#FFD700',
+                  textShadow: '0 0 10px rgba(255,215,0,0.8), 0 2px 4px rgba(0,0,0,0.4)',
                 }}
               >
                 {secondPlace.name}
@@ -71,12 +69,6 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
         {/* 1st Place - Center (Biggest) */}
         {firstPlace && (
           <div className="flex-1 max-w-[200px] sm:max-w-[240px] flex flex-col items-center">
-            {/* Golden Leaf Cluster Behind Badge */}
-            <div className="mb-1 flex gap-1 opacity-90" style={{ filter: 'drop-shadow(0 0 6px rgba(0,255,120,0.4))' }}>
-              <span className="text-2xl sm:text-3xl">🍃</span>
-              <span className="text-2xl sm:text-3xl">🍃</span>
-            </div>
-            
             {/* Gold Badge "1" */}
             <div 
               className="mb-3 w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center border-3 border-yellow-300"
@@ -85,30 +77,34 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
               <span className="text-white font-bold text-2xl sm:text-3xl">1</span>
             </div>
             
-            {/* Player Frame - Largest */}
-            <div className="w-full aspect-[3/4] rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden border-4 border-yellow-400 shadow-[0_0_15px_rgba(255,255,255,0.25),0_0_30px_rgba(255,215,0,0.8)] relative bg-gradient-to-br from-yellow-300 to-yellow-500">
+            {/* Player Frame - Largest with Golden Laurel Wreath */}
+            <div className="relative w-full aspect-square rounded-full overflow-hidden border-4 border-yellow-400 shadow-[0_0_30px_rgba(255,215,0,0.8)] bg-gradient-to-br from-yellow-300 to-yellow-500">
+              {/* Golden laurel wreath decoration */}
+              <div className="absolute -inset-3 z-10 pointer-events-none">
+                <div className="w-full h-full rounded-full border-4 border-yellow-400/70" style={{
+                  boxShadow: '0 0 20px rgba(255,215,0,0.6), inset 0 0 20px rgba(255,215,0,0.3)'
+                }} />
+              </div>
               {firstPlace.photo ? (
                 <img 
                   src={firstPlace.photo} 
                   alt={firstPlace.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover relative z-0"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-300 to-yellow-500 text-white text-5xl sm:text-6xl font-bold">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-300 to-yellow-500 text-white text-5xl sm:text-6xl font-bold relative z-0">
                   {firstPlace.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              {/* Inner glow */}
-              <div className="absolute inset-0 border-2 border-white/30 rounded-[2.5rem] sm:rounded-[3rem] pointer-events-none" />
             </div>
             
             {/* Name Label */}
-            <div className="mt-3 text-center">
+            <div className="mt-4 text-center">
               <div 
                 className="font-extrabold text-lg sm:text-xl"
                 style={{
-                  color: '#FFD166',
-                  textShadow: '0 0 10px rgba(255, 160, 0, 0.8), 0 2px 4px rgba(0,0,0,0.4)',
+                  color: '#FFD700',
+                  textShadow: '0 0 10px rgba(255,215,0,0.8), 0 2px 4px rgba(0,0,0,0.4)',
                 }}
               >
                 {firstPlace.name}
@@ -117,96 +113,45 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
           </div>
         )}
 
-        {/* 3rd Place - Right */}
-        {thirdPlace && (
-          <div className="flex-1 max-w-[140px] sm:max-w-[180px] flex flex-col items-center">
-            {/* Bronze Leaf Cluster Behind Badge */}
-            <div className="mb-1 flex gap-1 opacity-80" style={{ filter: 'drop-shadow(0 0 6px rgba(0,255,120,0.4))' }}>
-              <span className="text-xl sm:text-2xl">🍃</span>
-              <span className="text-xl sm:text-2xl">🍃</span>
-            </div>
-            
-            {/* Bronze Badge "3" */}
-            <div 
-              className="mb-3 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center border-2 border-white"
-              style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.35))' }}
-            >
-              <span className="text-white font-bold text-xl sm:text-2xl">3</span>
-            </div>
-            
-            {/* Player Frame */}
-            <div className="w-full aspect-[3/4] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border-4 border-orange-400 shadow-[0_0_15px_rgba(255,255,255,0.25),0_0_20px_rgba(255,145,0,0.6)] relative bg-gradient-to-br from-orange-400 to-orange-600">
-              {thirdPlace.photo ? (
-                <img 
-                  src={thirdPlace.photo} 
-                  alt={thirdPlace.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-orange-600 text-white text-4xl sm:text-5xl font-bold">
-                  {thirdPlace.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              {/* Inner glow */}
-              <div className="absolute inset-0 border-2 border-white/30 rounded-[2rem] sm:rounded-[2.5rem] pointer-events-none" />
-            </div>
-            
-            {/* Name Label */}
-            <div className="mt-2 text-center">
-              <div 
-                className="font-extrabold text-base sm:text-lg"
-                style={{
-                  color: '#FFD166',
-                  textShadow: '0 0 10px rgba(255, 160, 0, 0.8), 0 2px 4px rgba(0,0,0,0.4)',
-                }}
-              >
-                {thirdPlace.name}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 4th Place - Far Right */}
+        {/* 4th Place - Right (skip 3rd) */}
         {fourthPlace && (
           <div className="flex-1 max-w-[140px] sm:max-w-[180px] flex flex-col items-center">
-            {/* Green Leaf Cluster Behind Badge */}
-            <div className="mb-1 flex gap-1 opacity-80" style={{ filter: 'drop-shadow(0 0 6px rgba(0,255,120,0.4))' }}>
-              <span className="text-xl sm:text-2xl">🍃</span>
-              <span className="text-xl sm:text-2xl">🍃</span>
-            </div>
-            
-            {/* Tomato Badge */}
+            {/* Orange Badge "4" */}
             <div 
-              className="mb-3 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center border-2 border-white"
+              className="mb-3 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center border-2 border-white"
               style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.35))' }}
             >
-              <span className="text-2xl sm:text-3xl">🍅</span>
+              <span className="text-white font-bold text-xl sm:text-2xl">4</span>
             </div>
             
-            {/* Player Frame */}
-            <div className="w-full aspect-[3/4] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border-4 border-green-400 shadow-[0_0_15px_rgba(255,255,255,0.25),0_0_20px_rgba(74,222,128,0.6)] relative bg-gradient-to-br from-green-400 to-green-600">
+            {/* Player Frame with Golden Laurel Wreath Effect */}
+            <div className="relative w-full aspect-square rounded-full overflow-hidden border-4 border-yellow-400 shadow-[0_0_20px_rgba(255,215,0,0.6)] bg-gradient-to-br from-orange-400 to-orange-600">
+              {/* Golden laurel wreath decoration */}
+              <div className="absolute -inset-2 z-10 pointer-events-none">
+                <div className="w-full h-full rounded-full border-4 border-yellow-400/60" style={{
+                  boxShadow: '0 0 15px rgba(255,215,0,0.4), inset 0 0 15px rgba(255,215,0,0.2)'
+                }} />
+              </div>
               {fourthPlace.photo ? (
                 <img 
                   src={fourthPlace.photo} 
                   alt={fourthPlace.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover relative z-0"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-green-600 text-white text-4xl sm:text-5xl font-bold">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-orange-600 text-white text-4xl sm:text-5xl font-bold relative z-0">
                   {fourthPlace.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              {/* Inner glow */}
-              <div className="absolute inset-0 border-2 border-white/30 rounded-[2rem] sm:rounded-[2.5rem] pointer-events-none" />
             </div>
             
             {/* Name Label */}
-            <div className="mt-2 text-center">
+            <div className="mt-3 text-center">
               <div 
                 className="font-extrabold text-base sm:text-lg"
                 style={{
-                  color: '#FFD166',
-                  textShadow: '0 0 10px rgba(255, 160, 0, 0.8), 0 2px 4px rgba(0,0,0,0.4)',
+                  color: '#FFD700',
+                  textShadow: '0 0 10px rgba(255,215,0,0.8), 0 2px 4px rgba(0,0,0,0.4)',
                 }}
               >
                 {fourthPlace.name}

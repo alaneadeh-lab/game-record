@@ -14,12 +14,12 @@ export const MedalsTableNewTheme: React.FC<MedalsTableNewThemeProps> = ({ player
     <div className="w-full">
       <div className="bg-gradient-to-br from-purple-800/90 to-purple-900/90 backdrop-blur-sm rounded-[26px] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_2px_8px_rgba(255,255,255,0.05)]">
         <h3 
-          className="text-2xl sm:text-3xl font-black text-white mb-8 text-center"
+          className="text-xl sm:text-2xl font-bold text-white mb-6 text-left"
           style={{
-            textShadow: '0 0 15px rgba(255,215,0,0.5), 0 2px 4px rgba(0,0,0,0.3)',
+            textShadow: '0 0 10px rgba(255,255,255,0.3)',
           }}
         >
-          الميداليات
+          Medals
         </h3>
         
         <div className="overflow-x-auto">

@@ -1,5 +1,4 @@
 import React from 'react';
-import { calculateMedalPoints } from '../utils/gameLogic';
 import { getPlayerRank } from '../utils/gameLogic';
 import type { Player } from '../types';
 
@@ -11,58 +10,63 @@ export const StatsPanelNewTheme: React.FC<StatsPanelNewThemeProps> = ({ players 
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
 
-  // Color mapping for each player (by position)
-  const getPlayerColor = (index: number) => {
-    const colors = [
-      'from-blue-500 to-blue-700', // Jaafar (1st in sorted)
-      'from-purple-500 to-purple-700', // Asim (2nd)
-      'from-orange-500 to-orange-700', // Alaa (3rd)
-      'from-green-500 to-green-700', // Malik (4th)
-    ];
-    return colors[index % colors.length];
-  };
-
   return (
     <div className="w-full">
-      <div 
-        className="bg-gradient-to-br from-purple-600/80 to-purple-800/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.1)]"
-        style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.25), 0 8px 32px rgba(0,0,0,0.3)' }}
-      >
+      {/* قته Title with Icons */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        {/* Golden Crown Icon */}
+        <div className="text-4xl sm:text-5xl">👑</div>
+        
+        {/* قته Text */}
+        <h2 
+          className="text-4xl sm:text-5xl font-black"
+          style={{
+            color: '#FFD700',
+            textShadow: '0 0 20px rgba(255,215,0,0.8), 0 4px 8px rgba(0,0,0,0.5)',
+          }}
+        >
+          قته
+        </h2>
+        
+        {/* Domino and Card Icons */}
+        <div className="flex gap-2">
+          <div className="text-3xl sm:text-4xl">🎲</div>
+          <div className="text-3xl sm:text-4xl">🃏</div>
+        </div>
+      </div>
+
+      {/* Score Cards */}
+      <div className="bg-gradient-to-br from-purple-600/90 to-purple-800/90 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_2px_8px_rgba(255,255,255,0.1)]">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-          {sortedPlayers.map((player, index) => {
-            const points = calculateMedalPoints(player);
-            const isHighScore = index === 0; // First player has highest score
+          {sortedPlayers.map((player) => {
+            // Use fatts instead of points
+            const value = player.fatts;
             
             return (
               <div
                 key={player.id}
-                className={`rounded-[24px] p-5 sm:p-7 bg-gradient-to-br ${getPlayerColor(index)} border-3 border-white/30 transition-all duration-300 hover:scale-105 ${
-                  isHighScore ? 'shadow-[0_0_12px_rgba(255,215,0,0.7)]' : ''
-                }`}
+                className="rounded-2xl p-5 sm:p-6 bg-gradient-to-br from-purple-700/80 to-purple-900/80 border-2 border-purple-400/30 transition-all duration-300 hover:scale-105"
                 style={{
-                  borderWidth: '3px',
-                  boxShadow: isHighScore 
-                    ? '0 0 12px rgba(255,215,0,0.7), 0 4px 10px rgba(0,0,0,0.25)'
-                    : '0 4px 10px rgba(0,0,0,0.25)',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.25)',
                 }}
               >
                 {/* Player Name (Arabic) */}
-                <div className="mb-4 text-center">
+                <div className="mb-3 text-center">
                   <div 
                     className="font-extrabold text-base sm:text-lg"
                     style={{
-                      color: '#FFD166',
-                      textShadow: '0 0 10px rgba(255, 160, 0, 0.8), 0 2px 4px rgba(0,0,0,0.4)',
+                      color: '#FFD700',
+                      textShadow: '0 0 10px rgba(255,215,0,0.8), 0 2px 4px rgba(0,0,0,0.4)',
                     }}
                   >
                     {player.name}
                   </div>
                 </div>
                 
-                {/* Score (Large number) */}
+                {/* Fatts (Large number) */}
                 <div className="text-center">
                   <div className="text-4xl sm:text-5xl font-black text-white drop-shadow-lg">
-                    {points}
+                    {value}
                   </div>
                 </div>
               </div>
