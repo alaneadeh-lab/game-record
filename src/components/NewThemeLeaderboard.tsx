@@ -14,14 +14,16 @@ export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
   gameEntries: _gameEntries = [],
 }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#3A0CA3] via-[#560BAD] to-[#7209B7] relative overflow-hidden">
-      {/* Animated background decoration */}
+    <div className="min-h-screen bg-gradient-to-b from-[#5A00B8] via-[#40009C] to-[#25005F] relative overflow-hidden">
+      {/* Floating particle effects */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Confetti-like particles */}
-        <div className="absolute top-10 left-10 w-2 h-2 bg-yellow-400 rounded-full opacity-60 animate-pulse" />
-        <div className="absolute top-20 right-20 w-3 h-3 bg-pink-400 rounded-full opacity-50 animate-pulse" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute bottom-20 left-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-60 animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-green-400 rounded-full opacity-50 animate-pulse" style={{ animationDelay: '1.5s' }} />
+        {/* Blurred colored circles */}
+        <div className="absolute top-10 left-10 w-16 h-16 bg-yellow-400 rounded-full opacity-20 blur-xl animate-pulse" />
+        <div className="absolute top-20 right-20 w-20 h-20 bg-pink-400 rounded-full opacity-15 blur-xl animate-pulse" style={{ animationDelay: '0.5s' }} />
+        <div className="absolute bottom-20 left-1/4 w-14 h-14 bg-blue-400 rounded-full opacity-20 blur-xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/3 right-1/3 w-18 h-18 bg-green-400 rounded-full opacity-15 blur-xl animate-pulse" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute top-1/2 left-1/3 w-12 h-12 bg-purple-300 rounded-full opacity-20 blur-xl animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-1/3 right-1/4 w-16 h-16 bg-orange-400 rounded-full opacity-15 blur-xl animate-pulse" style={{ animationDelay: '2.5s' }} />
       </div>
 
       {/* Main content */}
@@ -30,12 +32,12 @@ export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
         <PodiumNewTheme players={players} />
 
         {/* Stats Panel */}
-        <div className="mt-8">
+        <div className="mt-10 sm:mt-12">
           <StatsPanelNewTheme players={players} />
         </div>
 
         {/* Medals Table */}
-        <div className="mt-8">
+        <div className="mt-10 sm:mt-12">
           <MedalsTableNewTheme players={players} />
         </div>
       </div>
