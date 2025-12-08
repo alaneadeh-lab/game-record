@@ -10,10 +10,9 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
 
-  // Get players by rank
+  // Get players by rank (only showing 1st, 2nd, and 4th - skipping 3rd)
   const firstPlace = sortedPlayers.find(p => ranks[p.id] === 1);
   const secondPlace = sortedPlayers.find(p => ranks[p.id] === 2);
-  const thirdPlace = sortedPlayers.find(p => ranks[p.id] === 3);
   const fourthPlace = sortedPlayers.find(p => ranks[p.id] === 4);
 
   return (
