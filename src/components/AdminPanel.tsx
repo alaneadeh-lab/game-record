@@ -286,7 +286,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           console.log('Player Inventory clicked');
                           onOpenPlayerInventory();
                         }}

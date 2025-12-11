@@ -756,7 +756,10 @@ function App() {
           onUpdateAllPlayers={handleUpdateAllPlayers}
           onClose={() => setShowAdmin(false)}
           onAddNewSet={handleCreateSet}
-          onOpenPlayerInventory={() => setShowPlayerInventory(true)}
+          onOpenPlayerInventory={() => {
+            setShowAdmin(false);
+            setShowPlayerInventory(true);
+          }}
           onSetChange={handleSetChange}
           onDeleteSet={handleDeleteSet}
         />
