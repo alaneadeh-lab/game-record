@@ -119,11 +119,32 @@ function App() {
         // On error, try to load again but preserve what's loaded
         try {
           const appData = await storageService.loadAppData();
-          setAllPlayers(appData.allPlayers || []);
-          setPlayerSets(appData.sets || []);
+          // If we get empty data, create default players so user can start
+          if (appData.allPlayers.length === 0 && appData.sets.length === 0) {
+            console.log('ℹ️ Load returned empty data, creating default players');
+            const defaultPlayers: Player[] = [
+              { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+              { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+              { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+              { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+            ];
+            setAllPlayers(defaultPlayers);
+            setPlayerSets([]);
+          } else {
+            setAllPlayers(appData.allPlayers || []);
+            setPlayerSets(appData.sets || []);
+          }
         } catch (retryError) {
           console.error('Failed to load data on retry:', retryError);
-          setAllPlayers([]);
+          // Even on retry failure, create default players so user can start
+          console.log('ℹ️ Retry failed, creating default players to allow user to start');
+          const defaultPlayers: Player[] = [
+            { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+            { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+            { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+            { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+          ];
+          setAllPlayers(defaultPlayers);
           setPlayerSets([]);
         }
       } finally {
@@ -550,6 +571,14 @@ function App() {
               Default players have been created. You can edit their names in the Player Inventory.
             </div>
           )}
+
+          {/* Always show Player Inventory button, even with no data */}
+          <button
+            onClick={() => setShowPlayerInventory(true)}
+            className="button-3d bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d mb-3"
+          >
+            👥 Open Player Inventory
+          </button>
         </div>
       </div>
     );
@@ -671,7 +700,7 @@ function App() {
         />
       )}
 
-      {/* Player Inventory */}
+      {/* Player Inventory - Can be opened even without a set */}
       {showPlayerInventory && (
         <PlayerInventory
           allPlayers={allPlayers}
@@ -683,7 +712,7 @@ function App() {
         />
       )}
 
-      {/* Admin Panel */}
+      {/* Admin Panel - Only show if we have a current set */}
       {showAdmin && !showPlayerInventory && currentSet && (
         <AdminPanel
           playerSet={currentSet}
