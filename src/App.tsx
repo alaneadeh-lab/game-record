@@ -29,9 +29,6 @@ function App() {
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'default' | 'new'>('default');
-  const [mongoRestoreOptions, setMongoRestoreOptions] = useState<any[]>([]);
-  const [checkingMongoRestore, setCheckingMongoRestore] = useState(false);
 
   // Check localStorage status on mount and check for recoverable data
   useEffect(() => {
@@ -62,17 +59,7 @@ function App() {
       try {
         setIsLoading(true);
         const appData = await storageService.loadAppData();
-        if (!appData) {
-          console.error('⚠️ appData is null or undefined');
-          setIsLoading(false);
-          return;
-        }
-        // Defensive check for structure
-        if (!Array.isArray(appData.allPlayers) || !Array.isArray(appData.sets)) {
-          console.error('⚠️ appData is missing required properties or they are not arrays:', appData);
-          setIsLoading(false);
-          return;
-        }
+        
         // If no players exist, create 4 default players
         if (appData.allPlayers.length === 0) {
           const defaultPlayers: Player[] = [
@@ -82,6 +69,7 @@ function App() {
             { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
           ];
           setAllPlayers(defaultPlayers);
+          
           // If no sets exist, create a default set with all players
           if (appData.sets.length === 0) {
             const defaultSet: PlayerSet = {
@@ -106,6 +94,7 @@ function App() {
           // Preserve player data as loaded from storage (including stats)
           // Stats are calculated per-set when displaying, but we preserve what was saved
           setAllPlayers(appData.allPlayers);
+          
           // If we have players but no sets, create a default set
           if (appData.sets.length === 0 && appData.allPlayers.length >= 4) {
             console.log('⚠️ No sets found but players exist, creating default set');
@@ -129,42 +118,11 @@ function App() {
         // On error, try to load again but preserve what's loaded
         try {
           const appData = await storageService.loadAppData();
-          if (!appData) {
-            console.error('⚠️ appData is null or undefined (on retry)');
-            setIsLoading(false);
-            return;
-          }
-          if (!Array.isArray(appData.allPlayers) || !Array.isArray(appData.sets)) {
-            console.error('⚠️ appData is missing required properties or they are not arrays (on retry):', appData);
-            setIsLoading(false);
-            return;
-          }
-          // If we get empty data, create default players so user can start
-          if (appData.allPlayers.length === 0 && appData.sets.length === 0) {
-            console.log('ℹ️ Load returned empty data, creating default players');
-            const defaultPlayers: Player[] = [
-              { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-              { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-              { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-              { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            ];
-            setAllPlayers(defaultPlayers);
-            setPlayerSets([]);
-          } else {
-            setAllPlayers(appData.allPlayers || []);
-            setPlayerSets(appData.sets || []);
-          }
+          setAllPlayers(appData.allPlayers || []);
+          setPlayerSets(appData.sets || []);
         } catch (retryError) {
           console.error('Failed to load data on retry:', retryError);
-          // Even on retry failure, create default players so user can start
-          console.log('ℹ️ Retry failed, creating default players to allow user to start');
-          const defaultPlayers: Player[] = [
-            { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-          ];
-          setAllPlayers(defaultPlayers);
+          setAllPlayers([]);
           setPlayerSets([]);
         }
       } finally {
@@ -489,77 +447,6 @@ function App() {
     setShowPinModalForGame(true);
   };
 
-  const handleCheckMongoRestore = useCallback(async () => {
-    setCheckingMongoRestore(true);
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
-      const response = await fetch(`${apiUrl}/app-data/list-all`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to check MongoDB: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      const documents = result.documents || [];
-      
-      // Filter to only show documents with actual data
-      const optionsWithData = documents.filter((doc: any) => 
-        doc.dataSummary.players > 0 || doc.dataSummary.totalGames > 0
-      );
-      
-      if (optionsWithData.length > 0) {
-        setMongoRestoreOptions(optionsWithData);
-        alert(`Found ${optionsWithData.length} restore point(s) in MongoDB. Click a restore button below to restore.`);
-      } else {
-        alert('No data found in MongoDB to restore. You may need to restore from MongoDB Atlas backups manually.');
-      }
-    } catch (error) {
-      console.error('Failed to check MongoDB restore:', error);
-      alert(`Failed to check MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setCheckingMongoRestore(false);
-    }
-  }, []);
-
-  const handleRestoreFromMongo = useCallback(async (fromUserId: string) => {
-    if (!confirm(`Restore data from "${fromUserId}"? This will overwrite your current data.`)) {
-      return;
-    }
-    
-    try {
-      setCheckingMongoRestore(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
-      const userId = import.meta.env.VITE_USER_ID || 'default';
-      
-      const response = await fetch(`${apiUrl}/app-data/restore`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fromUserId,
-          toUserId: userId,
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error(errorData.error || response.statusText);
-      }
-      
-      const result = await response.json();
-      alert(`✅ Data restored successfully!\n\nPlayers: ${result.stats.players}\nSets: ${result.stats.sets}\nGames: ${result.stats.totalGames}\n\nReloading page...`);
-      
-      // Reload to fetch restored data
-      window.location.reload();
-    } catch (error) {
-      console.error('Failed to restore from MongoDB:', error);
-      alert(`Failed to restore: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setCheckingMongoRestore(false);
-    }
-  }, []);
-
   const handleRecoveryUpload = useCallback(async () => {
     try {
       setRecoveryStatus('uploading');
@@ -587,7 +474,7 @@ function App() {
   }, []);
 
   if (isLoading) {
-    return (
+  return (
       <div className="min-h-screen flex items-center justify-center bg-casino-felt">
         <div className="text-center">
           <div className="text-4xl mb-4 animate-bounce">🎰</div>
@@ -651,7 +538,7 @@ function App() {
               className="button-3d bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d text-sm"
             >
               📦 Recover Data from localStorage
-            </button>
+        </button>
             <div className="text-white opacity-60 text-xs mt-2">
               Check if your saved data is in localStorage
             </div>
@@ -662,41 +549,6 @@ function App() {
               Default players have been created. You can edit their names in the Player Inventory.
             </div>
           )}
-
-          {/* Always show Player Inventory button, even with no data */}
-          <button
-            onClick={() => setShowPlayerInventory(true)}
-            className="button-3d bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d mb-3"
-          >
-            👥 Open Player Inventory
-          </button>
-
-          {/* MongoDB Restore Button */}
-          <div className="mt-4">
-            <button
-              onClick={handleCheckMongoRestore}
-              disabled={checkingMongoRestore}
-              className="button-3d bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d text-sm disabled:opacity-50"
-            >
-              {checkingMongoRestore ? '🔍 Checking MongoDB...' : '🔄 Restore from MongoDB'}
-            </button>
-            <div className="text-white opacity-60 text-xs mt-2">
-              Check for existing data in MongoDB
-            </div>
-            {mongoRestoreOptions.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {mongoRestoreOptions.map((option, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleRestoreFromMongo(option.userId)}
-                    className="w-full button-3d bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d text-sm"
-                  >
-                    Restore from {option.userId} ({option.dataSummary.players} players, {option.dataSummary.sets} sets, {option.dataSummary.totalGames} games)
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -818,7 +670,7 @@ function App() {
         />
       )}
 
-      {/* Player Inventory - Can be opened even without a set */}
+      {/* Player Inventory */}
       {showPlayerInventory && (
         <PlayerInventory
           allPlayers={allPlayers}
@@ -830,7 +682,7 @@ function App() {
         />
       )}
 
-      {/* Admin Panel - Only show if we have a current set */}
+      {/* Admin Panel */}
       {showAdmin && !showPlayerInventory && currentSet && (
         <AdminPanel
           playerSet={currentSet}
@@ -844,7 +696,6 @@ function App() {
           onOpenPlayerInventory={() => setShowPlayerInventory(true)}
           onSetChange={handleSetChange}
           onDeleteSet={handleDeleteSet}
-          onRestoreFromMongo={handleCheckMongoRestore}
         />
       )}
 
@@ -902,8 +753,6 @@ function App() {
                       gameEntries={set.gameEntries}
                       onAddGameClick={handleAddGameClick}
                       onAdminClick={handleAdminClick}
-                      theme={theme}
-                      onThemeChange={setTheme}
                     />
                   </div>
                 </div>
