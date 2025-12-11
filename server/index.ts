@@ -221,6 +221,101 @@ app.get('/api/app-data', async (req, res) => {
   }
 });
 
+// List all documents in collection (for restore purposes)
+app.get('/api/app-data/list-all', async (req, res) => {
+  try {
+    addCorsHeaders(req, res);
+    
+    if (!db) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const collection = db.collection(COLLECTION_NAME);
+    const docs = await collection.find({}).sort({ updatedAt: -1 }).toArray();
+    
+    const results = docs.map(doc => ({
+      userId: doc.userId,
+      updatedAt: doc.updatedAt,
+      createdAt: doc.createdAt || doc.updatedAt,
+      dataSummary: {
+        players: doc.data?.allPlayers?.length || 0,
+        sets: doc.data?.sets?.length || 0,
+        totalGames: doc.data?.sets?.reduce((sum: number, set: any) => sum + (set.gameEntries?.length || 0), 0) || 0,
+      },
+    }));
+    
+    res.json({ documents: results });
+  } catch (error) {
+    console.error('❌ Error listing documents:', error);
+    addCorsHeaders(req, res);
+    res.status(500).json({ error: 'Failed to list documents' });
+  }
+});
+
+// Restore from a specific document (by userId)
+app.post('/api/app-data/restore', async (req, res) => {
+  try {
+    addCorsHeaders(req, res);
+    
+    if (!db) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const { fromUserId, toUserId } = req.body;
+    const sourceUserId = fromUserId || 'default';
+    const targetUserId = toUserId || 'default';
+    
+    const collection = db.collection(COLLECTION_NAME);
+    
+    // Find the source document
+    const sourceDoc = await collection.findOne({ userId: sourceUserId });
+    
+    if (!sourceDoc || !sourceDoc.data) {
+      return res.status(404).json({ error: 'Source document not found' });
+    }
+    
+    // Check if source has actual data
+    const sourceData = sourceDoc.data as AppData;
+    const hasData = (sourceData.allPlayers?.length || 0) > 0 || (sourceData.sets?.length || 0) > 0;
+    
+    if (!hasData) {
+      return res.status(400).json({ error: 'Source document has no data to restore' });
+    }
+    
+    // Restore to target userId
+    await collection.updateOne(
+      { userId: targetUserId },
+      { 
+        $set: { 
+          userId: targetUserId,
+          data: sourceData,
+          updatedAt: new Date(),
+          restoredAt: new Date(),
+          restoredFrom: sourceUserId,
+        } 
+      },
+      { upsert: true }
+    );
+    
+    const totalGames = sourceData.sets?.reduce((sum: number, set: any) => sum + (set.gameEntries?.length || 0), 0) || 0;
+    console.log(`✅ Restored data from ${sourceUserId} to ${targetUserId}: ${sourceData.allPlayers?.length || 0} players, ${sourceData.sets?.length || 0} sets, ${totalGames} games`);
+    
+    res.json({ 
+      success: true,
+      message: 'Data restored successfully',
+      stats: {
+        players: sourceData.allPlayers?.length || 0,
+        sets: sourceData.sets?.length || 0,
+        totalGames,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error restoring data:', error);
+    addCorsHeaders(req, res);
+    res.status(500).json({ error: 'Failed to restore data' });
+  }
+});
+
 // Upload/Import app data (POST endpoint for data migration)
 app.post('/api/app-data/upload', async (req, res) => {
   try {

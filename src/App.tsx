@@ -30,6 +30,8 @@ function App() {
   const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [theme, setTheme] = useState<'default' | 'new'>('default');
+  const [mongoRestoreOptions, setMongoRestoreOptions] = useState<any[]>([]);
+  const [checkingMongoRestore, setCheckingMongoRestore] = useState(false);
 
   // Check localStorage status on mount and check for recoverable data
   useEffect(() => {
@@ -469,6 +471,77 @@ function App() {
     setShowPinModalForGame(true);
   };
 
+  const handleCheckMongoRestore = useCallback(async () => {
+    setCheckingMongoRestore(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
+      const response = await fetch(`${apiUrl}/app-data/list-all`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to check MongoDB: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      const documents = result.documents || [];
+      
+      // Filter to only show documents with actual data
+      const optionsWithData = documents.filter((doc: any) => 
+        doc.dataSummary.players > 0 || doc.dataSummary.totalGames > 0
+      );
+      
+      if (optionsWithData.length > 0) {
+        setMongoRestoreOptions(optionsWithData);
+        alert(`Found ${optionsWithData.length} restore point(s) in MongoDB. Click a restore button below to restore.`);
+      } else {
+        alert('No data found in MongoDB to restore. You may need to restore from MongoDB Atlas backups manually.');
+      }
+    } catch (error) {
+      console.error('Failed to check MongoDB restore:', error);
+      alert(`Failed to check MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setCheckingMongoRestore(false);
+    }
+  }, []);
+
+  const handleRestoreFromMongo = useCallback(async (fromUserId: string) => {
+    if (!confirm(`Restore data from "${fromUserId}"? This will overwrite your current data.`)) {
+      return;
+    }
+    
+    try {
+      setCheckingMongoRestore(true);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
+      const userId = import.meta.env.VITE_USER_ID || 'default';
+      
+      const response = await fetch(`${apiUrl}/app-data/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fromUserId,
+          toUserId: userId,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errorData.error || response.statusText);
+      }
+      
+      const result = await response.json();
+      alert(`✅ Data restored successfully!\n\nPlayers: ${result.stats.players}\nSets: ${result.stats.sets}\nGames: ${result.stats.totalGames}\n\nReloading page...`);
+      
+      // Reload to fetch restored data
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to restore from MongoDB:', error);
+      alert(`Failed to restore: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setCheckingMongoRestore(false);
+    }
+  }, []);
+
   const handleRecoveryUpload = useCallback(async () => {
     try {
       setRecoveryStatus('uploading');
@@ -579,6 +652,33 @@ function App() {
           >
             👥 Open Player Inventory
           </button>
+
+          {/* MongoDB Restore Button */}
+          <div className="mt-4">
+            <button
+              onClick={handleCheckMongoRestore}
+              disabled={checkingMongoRestore}
+              className="button-3d bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d text-sm disabled:opacity-50"
+            >
+              {checkingMongoRestore ? '🔍 Checking MongoDB...' : '🔄 Restore from MongoDB'}
+            </button>
+            <div className="text-white opacity-60 text-xs mt-2">
+              Check for existing data in MongoDB
+            </div>
+            {mongoRestoreOptions.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {mongoRestoreOptions.map((option, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleRestoreFromMongo(option.userId)}
+                    className="w-full button-3d bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-3d text-sm"
+                  >
+                    Restore from {option.userId} ({option.dataSummary.players} players, {option.dataSummary.sets} sets, {option.dataSummary.totalGames} games)
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
