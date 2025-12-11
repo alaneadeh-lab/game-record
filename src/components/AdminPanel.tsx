@@ -18,6 +18,7 @@ interface AdminPanelProps {
   onOpenPlayerInventory: () => void;
   onSetChange: (index: number) => void;
   onDeleteSet: () => void;
+  onRestoreFromMongo?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -32,6 +33,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenPlayerInventory,
   onSetChange,
   onDeleteSet,
+  onRestoreFromMongo,
 }) => {
   const [activeTab, setActiveTab] = useState<'games' | 'players'>('games');
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
@@ -285,6 +287,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         Player Inventory
                       </button>
                     </div>
+                  </div>
+                </div>
+
+                {/* MongoDB Restore Section */}
+                <div className="card-3d bg-white rounded-xl p-4 shadow-3d">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">Restore Data</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Restore data from MongoDB if it was lost or deleted.
+                    </p>
+                    <button
+                      onClick={onRestoreFromMongo || (() => {
+                        alert('Restore functionality not available. Please close admin panel and use the restore button on the main screen.');
+                      })}
+                      className="button-3d bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2"
+                    >
+                      🔄 Restore from MongoDB
+                    </button>
                   </div>
                 </div>
 

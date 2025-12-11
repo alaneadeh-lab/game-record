@@ -826,6 +826,7 @@ function App() {
           onOpenPlayerInventory={() => setShowPlayerInventory(true)}
           onSetChange={handleSetChange}
           onDeleteSet={handleDeleteSet}
+          onRestoreFromMongo={handleCheckMongoRestore}
         />
       )}
 
