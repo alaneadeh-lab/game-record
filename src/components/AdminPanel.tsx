@@ -112,7 +112,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
     <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm pointer-events-auto overflow-y-auto">
-      <div className="relative z-50 min-h-full bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 p-4">
+      <div className="relative z-50 min-h-full bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 p-4" style={{ pointerEvents: 'auto' }}>
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex justify-between items-center mb-6 pt-4">
@@ -273,15 +273,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </p>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => setShowPlayerSelector(true)}
-                        className="button-3d bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2"
+                        type="button"
+                        onClick={() => {
+                          console.log('Manage Set Players clicked');
+                          setShowPlayerSelector(true);
+                        }}
+                        className="button-3d bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2 cursor-pointer relative z-10"
+                        style={{ pointerEvents: 'auto' }}
                       >
                         <Users className="w-5 h-5" />
                         Manage Set Players
                       </button>
                       <button
-                        onClick={onOpenPlayerInventory}
-                        className="button-3d bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2"
+                        type="button"
+                        onClick={() => {
+                          console.log('Player Inventory clicked');
+                          onOpenPlayerInventory();
+                        }}
+                        className="button-3d bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2 cursor-pointer relative z-10"
+                        style={{ pointerEvents: 'auto' }}
                       >
                         <Users className="w-5 h-5" />
                         Player Inventory
@@ -298,10 +308,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       Restore data from MongoDB if it was lost or deleted.
                     </p>
                     <button
-                      onClick={onRestoreFromMongo || (() => {
-                        alert('Restore functionality not available. Please close admin panel and use the restore button on the main screen.');
-                      })}
-                      className="button-3d bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2"
+                      type="button"
+                      onClick={() => {
+                        console.log('Restore from MongoDB clicked');
+                        if (onRestoreFromMongo) {
+                          onRestoreFromMongo();
+                        } else {
+                          alert('Restore functionality not available. Please close admin panel and use the restore button on the main screen.');
+                        }
+                      }}
+                      className="button-3d bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 px-6 rounded-xl shadow-3d hover:shadow-3d-hover flex items-center justify-center gap-2 cursor-pointer relative z-10"
+                      style={{ pointerEvents: 'auto' }}
                     >
                       🔄 Restore from MongoDB
                     </button>
