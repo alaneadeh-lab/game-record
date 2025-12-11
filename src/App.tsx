@@ -62,7 +62,17 @@ function App() {
       try {
         setIsLoading(true);
         const appData = await storageService.loadAppData();
-        
+        if (!appData) {
+          console.error('⚠️ appData is null or undefined');
+          setIsLoading(false);
+          return;
+        }
+        // Defensive check for structure
+        if (!Array.isArray(appData.allPlayers) || !Array.isArray(appData.sets)) {
+          console.error('⚠️ appData is missing required properties or they are not arrays:', appData);
+          setIsLoading(false);
+          return;
+        }
         // If no players exist, create 4 default players
         if (appData.allPlayers.length === 0) {
           const defaultPlayers: Player[] = [
@@ -72,7 +82,6 @@ function App() {
             { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
           ];
           setAllPlayers(defaultPlayers);
-          
           // If no sets exist, create a default set with all players
           if (appData.sets.length === 0) {
             const defaultSet: PlayerSet = {
@@ -97,7 +106,6 @@ function App() {
           // Preserve player data as loaded from storage (including stats)
           // Stats are calculated per-set when displaying, but we preserve what was saved
           setAllPlayers(appData.allPlayers);
-          
           // If we have players but no sets, create a default set
           if (appData.sets.length === 0 && appData.allPlayers.length >= 4) {
             console.log('⚠️ No sets found but players exist, creating default set');
@@ -121,6 +129,16 @@ function App() {
         // On error, try to load again but preserve what's loaded
         try {
           const appData = await storageService.loadAppData();
+          if (!appData) {
+            console.error('⚠️ appData is null or undefined (on retry)');
+            setIsLoading(false);
+            return;
+          }
+          if (!Array.isArray(appData.allPlayers) || !Array.isArray(appData.sets)) {
+            console.error('⚠️ appData is missing required properties or they are not arrays (on retry):', appData);
+            setIsLoading(false);
+            return;
+          }
           // If we get empty data, create default players so user can start
           if (appData.allPlayers.length === 0 && appData.sets.length === 0) {
             console.log('ℹ️ Load returned empty data, creating default players');
