@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
 import { SetManagerModal } from './components/SetManagerModal';
@@ -41,6 +42,25 @@ function App() {
 
   // Get current background color based on set index
   const currentBgColor = casinoColors[currentSetIndex % casinoColors.length];
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyPress = (e: KeyboardEvent) => {
+      // Only handle shortcuts when not in an input field
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      
+      // Ctrl/Cmd + G to quickly add game
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        if (!showAdmin && !showPlayerInventory && !showGameForm) {
+          handleAddGameClick();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyPress);
+    return () => document.removeEventListener('keydown', handleGlobalKeyPress);
+  }, [showAdmin, showPlayerInventory, showGameForm]);
   useEffect(() => {
     const status = checkLocalStorageStatus();
     setStorageStatus(status);
@@ -757,6 +777,18 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Quick Add Game Button */}
+      {!showAdmin && !showPlayerInventory && !showGameForm && (
+        <button
+          onClick={handleAddGameClick}
+          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d animate-pulse"
+          aria-label="Quick add game"
+          title="Quick Add Game (Ctrl+G)"
+        >
+          <Plus className="w-10 h-10" />
+        </button>
       )}
 
     </div>
