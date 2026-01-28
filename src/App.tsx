@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
-import { PinModal } from './components/PinModal';
 import { SetManagerModal } from './components/SetManagerModal';
 import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
@@ -19,8 +18,6 @@ function App() {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPlayerInventory, setShowPlayerInventory] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [showPinModalForGame, setShowPinModalForGame] = useState(false);
   const [showNewSetSelector, setShowNewSetSelector] = useState(false);
   const [showSetMenu, setShowSetMenu] = useState(false);
   const [showGameForm, setShowGameForm] = useState(false);
@@ -428,22 +425,12 @@ function App() {
     if (showAdmin) {
       setShowAdmin(false);
     } else {
-      setShowPinModal(true);
+      setShowAdmin(true);
     }
   };
 
-  const handlePinSuccess = () => {
-    setShowPinModal(false);
-    setShowAdmin(true);
-  };
-
-  const handlePinSuccessForGame = () => {
-    setShowPinModalForGame(false);
-    setShowGameForm(true);
-  };
-
   const handleAddGameClick = () => {
-    setShowPinModalForGame(true);
+    setShowGameForm(true);
   };
 
   const handleRecoveryUpload = useCallback(async () => {
@@ -574,24 +561,6 @@ function App() {
           <div className="font-bold mb-1">⚠️ Storage Issue</div>
           <div className="text-sm">{storageStatus.error || 'localStorage not working'}</div>
         </div>
-      )}
-
-      {/* Pin Modal for Admin */}
-      {showPinModal && (
-        <PinModal
-          correctPin="88"
-          onSuccess={handlePinSuccess}
-          onCancel={() => setShowPinModal(false)}
-        />
-      )}
-
-      {/* Pin Modal for Add Game */}
-      {showPinModalForGame && (
-        <PinModal
-          correctPin="88"
-          onSuccess={handlePinSuccessForGame}
-          onCancel={() => setShowPinModalForGame(false)}
-        />
       )}
 
       {/* Data Recovery Modal */}
