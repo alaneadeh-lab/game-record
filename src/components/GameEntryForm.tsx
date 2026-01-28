@@ -85,6 +85,11 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
     setActiveKeypad(nextField);
   };
 
+  const handleKeypadCancel = () => {
+    // Just close the keypad without advancing
+    setActiveKeypad(null);
+  };
+
   // Calculate progress
   const totalFields = players.length * 2; // score + fatt for each player
   const completedFields = players.reduce((count, player) => {
@@ -107,6 +112,7 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
           }
           onChange={handleKeypadChange}
           onClose={handleKeypadClose}
+          onCancel={handleKeypadCancel}
           allowNegative={activeKeypad.field === 'score'}
           label={`${players.find((p) => p.id === activeKeypad.playerId)?.name} - ${activeKeypad.field === 'score' ? 'Score' : 'Fatts'}`}
         />

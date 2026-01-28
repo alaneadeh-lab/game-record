@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Delete } from 'lucide-react';
 
 interface NumericKeypadProps {
   value: number;
   onChange: (value: number) => void;
   onClose: () => void;
+  onCancel?: () => void; // Separate cancel/close handler
   allowNegative?: boolean;
   label?: string;
 }
@@ -13,6 +14,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   value,
   onChange,
   onClose,
+  onCancel,
   allowNegative = false,
   label = 'Enter Value',
 }) => {
@@ -49,14 +51,22 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
     }
   };
 
+  // Prevent body scrolling when keypad is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-white to-gray-100 rounded-3xl p-6 shadow-3d max-w-sm w-full">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden">
+      <div className="bg-gradient-to-br from-white to-gray-100 rounded-3xl p-6 shadow-3d max-w-sm w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800">{label}</h3>
           <button
-            onClick={onClose}
+            onClick={onCancel || onClose}
             className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
           >
             <X className="w-5 h-5" />
