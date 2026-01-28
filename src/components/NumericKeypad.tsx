@@ -8,6 +8,7 @@ interface NumericKeypadProps {
   onCancel?: () => void; // Separate cancel/close handler
   allowNegative?: boolean;
   title?: string;
+  playerColor?: string; // Player-specific color for the title
 }
 
 export const NumericKeypad: React.FC<NumericKeypadProps> = ({
@@ -17,6 +18,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   onCancel,
   allowNegative = false,
   title = 'Enter Value',
+  playerColor = '#3B82F6', // Default blue color
 }) => {
   const handleNumberPress = (digit: string) => {
     const currentValue = value || 0;
@@ -181,15 +183,32 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
           onClick={(e) => e.stopPropagation()} // Prevent backdrop click when clicking modal
         >
           {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+          <div className="relative mb-4">
+            {/* Centered title with frame */}
+            <div className="flex justify-center">
+              <div 
+                className="px-4 py-2 rounded-lg border-2 shadow-md"
+                style={{ 
+                  borderColor: playerColor,
+                  backgroundColor: `${playerColor}15`, // Semi-transparent background
+                }}
+              >
+                <h3 
+                  className="text-lg font-bold text-center"
+                  style={{ color: playerColor }}
+                >
+                  {title}
+                </h3>
+              </div>
+            </div>
+            {/* Close button positioned absolutely */}
             <button
               onClick={onCancel || onClose}
               onTouchEnd={(e) => {
                 e.preventDefault();
                 (onCancel || onClose)();
               }}
-              className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 active:scale-95 transition-transform"
+              className="absolute top-0 right-0 button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 active:scale-95 transition-transform"
               style={{ touchAction: 'manipulation' }}
             >
               <X className="w-5 h-5" />

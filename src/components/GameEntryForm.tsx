@@ -101,6 +101,22 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
     return count;
   }, 0);
 
+  // Generate player-specific colors
+  const getPlayerColor = (playerId: string) => {
+    const playerIndex = players.findIndex(p => p.id === playerId);
+    const colors = [
+      '#3B82F6', // Blue
+      '#EF4444', // Red
+      '#10B981', // Green
+      '#F59E0B', // Yellow
+      '#8B5CF6', // Purple
+      '#EC4899', // Pink
+      '#06B6D4', // Cyan
+      '#84CC16', // Lime
+    ];
+    return colors[playerIndex % colors.length];
+  };
+
   return (
     <>
       {activeKeypad && (
@@ -115,6 +131,7 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
           onCancel={handleKeypadCancel}
           allowNegative={activeKeypad.field === 'score'}
           title={`${players.find((p) => p.id === activeKeypad.playerId)?.name} - ${activeKeypad.field === 'score' ? 'Score' : 'Fatts'}`}
+          playerColor={getPlayerColor(activeKeypad.playerId)}
         />
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
