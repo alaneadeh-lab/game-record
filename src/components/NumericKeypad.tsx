@@ -7,9 +7,7 @@ interface NumericKeypadProps {
   onClose: () => void;
   onCancel?: () => void; // Separate cancel/close handler
   allowNegative?: boolean;
-  label?: string;
   title?: string;
-  placeholder?: string;
 }
 
 export const NumericKeypad: React.FC<NumericKeypadProps> = ({
@@ -18,9 +16,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   onClose,
   onCancel,
   allowNegative = false,
-  label = 'Enter Value',
   title = 'Enter Value',
-  placeholder = '',
 }) => {
   const handleNumberPress = (digit: string) => {
     const currentValue = value || 0;

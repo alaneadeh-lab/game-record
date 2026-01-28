@@ -114,7 +114,7 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
           onClose={handleKeypadClose}
           onCancel={handleKeypadCancel}
           allowNegative={activeKeypad.field === 'score'}
-          label={`${players.find((p) => p.id === activeKeypad.playerId)?.name} - ${activeKeypad.field === 'score' ? 'Score' : 'Fatts'}`}
+          title={`${players.find((p) => p.id === activeKeypad.playerId)?.name} - ${activeKeypad.field === 'score' ? 'Score' : 'Fatts'}`}
         />
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
