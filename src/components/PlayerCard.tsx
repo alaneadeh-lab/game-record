@@ -3,6 +3,7 @@ import FirstPlaceBadge from './FirstPlaceBadge';
 import SecondPlaceBadge from './SecondPlaceBadge';
 import ThirdPlaceBadge from './ThirdPlaceBadge';
 import TomatoBadge from './TomatoBadge';
+import AngryEyes from './AngryEyes';
 import type { Player } from '../types';
 
 interface PlayerCardProps {
@@ -105,6 +106,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
               {player.name.charAt(0).toUpperCase()}
             </div>
           )}
+          
+          {/* Angry Eyes Animation for Last Place */}
+          {rank === 4 && <AngryEyes />}
         </div>
 
         {/* Inner bevel effect */}
