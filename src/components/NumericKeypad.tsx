@@ -157,7 +157,6 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
           e.stopPropagation();
         }}
         style={{
-          touchAction: 'none',
           overscrollBehavior: 'none',
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
@@ -165,7 +164,11 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
         }}
       >
         {/* Modal content */}
-        <div className="bg-white rounded-2xl shadow-3d max-w-sm w-full max-h-[90vh] overflow-hidden">
+        <div 
+          className="bg-white rounded-2xl shadow-3d max-w-sm w-full max-h-[90vh] overflow-hidden"
+          style={{ touchAction: 'manipulation' }}
+          onClick={(e) => e.stopPropagation()} // Prevent backdrop click when clicking modal
+        >
           {/* Header */}
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold text-gray-800">{title}</h3>
