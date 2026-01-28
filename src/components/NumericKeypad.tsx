@@ -178,11 +178,11 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
       >
         {/* Modal content */}
         <div 
-          className="rounded-2xl shadow-3d max-w-md w-full max-h-[90vh] overflow-hidden p-6"
+          className="bg-white rounded-2xl shadow-3d max-w-md w-full max-h-[90vh] overflow-hidden p-6"
           style={{ 
             touchAction: 'manipulation',
-            backgroundColor: `${playerColor}08`, // Very light background matching title
-            border: `2px solid ${playerColor}20` // Subtle border
+            border: `2px solid ${playerColor}40`, // More visible border
+            boxShadow: `0 10px 25px -5px ${playerColor}20, 0 10px 10px -5px ${playerColor}10` // Enhanced shadow with player color
           }}
           onClick={(e) => e.stopPropagation()} // Prevent backdrop click when clicking modal
         >
