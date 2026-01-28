@@ -30,7 +30,20 @@ function App() {
   const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
-  // Check localStorage status on mount and check for recoverable data
+  // Casino-themed background colors that change with each set
+  const casinoColors = [
+    'bg-gradient-to-br from-green-800 via-green-900 to-emerald-900', // Classic green felt
+    'bg-gradient-to-br from-blue-800 via-blue-900 to-indigo-900',   // Royal blue
+    'bg-gradient-to-br from-purple-800 via-purple-900 to-violet-900', // Royal purple
+    'bg-gradient-to-br from-red-800 via-red-900 to-rose-900',       // Burgundy
+    'bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900',   // Charcoal
+    'bg-gradient-to-br from-teal-800 via-teal-900 to-cyan-900',     // Ocean blue
+    'bg-gradient-to-br from-orange-800 via-orange-900 to-amber-900', // Sunset orange
+    'bg-gradient-to-br from-pink-800 via-pink-900 to-rose-900',     // Hot pink
+  ];
+
+  // Get current background color based on set index
+  const currentBgColor = casinoColors[currentSetIndex % casinoColors.length];
   useEffect(() => {
     const status = checkLocalStorageStatus();
     setStorageStatus(status);
@@ -461,7 +474,7 @@ function App() {
 
   if (isLoading) {
   return (
-      <div className="min-h-screen flex items-center justify-center bg-casino-felt">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-800 via-green-900 to-emerald-900">
         <div className="text-center">
           <div className="text-4xl mb-4 animate-bounce">🎰</div>
           <div className="text-2xl font-bold text-white mb-2">Loading...</div>
@@ -502,7 +515,7 @@ function App() {
     };
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-casino-felt">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-800 via-green-900 to-emerald-900">
         <div className="text-center">
           <div className="text-2xl font-bold text-white mb-2">No Player Set</div>
           <div className="text-white opacity-75 mb-4">
@@ -541,7 +554,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-casino-felt relative">
+    <div className={`min-h-[100dvh] flex flex-col ${currentBgColor} relative`}>
       {/* Save Status Indicator */}
       {saveStatus !== 'idle' && (
         <div className={`fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
