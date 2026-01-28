@@ -81,8 +81,9 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
     };
     
     const preventTouch = (e: TouchEvent) => {
-      // Only prevent if the target is the body, html, or window
-      if (e.target === document.body || e.target === document.documentElement || e.target === window) {
+      // Only prevent if touching the backdrop itself, not modal content
+      const target = e.target as Element;
+      if (target && (target.id === 'keypad-backdrop' || target === document.body || target === document.documentElement)) {
         e.preventDefault();
         e.stopPropagation();
         return false;
@@ -135,18 +136,28 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
     <>
       {/* Full-screen backdrop that blocks all scroll events - enhanced for mobile */}
       <div 
+        id="keypad-backdrop"
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
         onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
+          // Only prevent if touching the backdrop directly, not modal content
+          if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
         }}
         onTouchMove={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
+          // Only prevent if touching the backdrop directly, not modal content
+          if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
         }}
         onTouchEnd={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
+          // Only prevent if touching the backdrop directly, not modal content
+          if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
         }}
         onWheel={(e) => {
           e.preventDefault();
@@ -174,7 +185,12 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             <h3 className="text-xl font-bold text-gray-800">{title}</h3>
             <button
               onClick={onCancel || onClose}
-              className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                (onCancel || onClose)();
+              }}
+              className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation' }}
             >
               <X className="w-5 h-5" />
             </button>
@@ -192,19 +208,34 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             {/* Row 1 */}
             <button
               onClick={() => handleNumberPress('7')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('7');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               7
             </button>
             <button
               onClick={() => handleNumberPress('8')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('8');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               8
             </button>
             <button
               onClick={() => handleNumberPress('9')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('9');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               9
             </button>
@@ -212,19 +243,34 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             {/* Row 2 */}
             <button
               onClick={() => handleNumberPress('4')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('4');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               4
             </button>
             <button
               onClick={() => handleNumberPress('5')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('5');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               5
             </button>
             <button
               onClick={() => handleNumberPress('6')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('6');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               6
             </button>
@@ -232,19 +278,34 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             {/* Row 3 */}
             <button
               onClick={() => handleNumberPress('1')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('1');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               1
             </button>
             <button
               onClick={() => handleNumberPress('2')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('2');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               2
             </button>
             <button
               onClick={() => handleNumberPress('3')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('3');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               3
             </button>
@@ -253,7 +314,12 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             {allowNegative ? (
               <button
                 onClick={handleToggleNegative}
-                className="button-3d bg-gradient-to-br from-orange-400 to-orange-500 text-white font-bold text-xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleToggleNegative();
+                }}
+                className="button-3d bg-gradient-to-br from-orange-400 to-orange-500 text-white font-bold text-xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+                style={{ touchAction: 'manipulation', minHeight: '60px' }}
               >
                 +/-
               </button>
@@ -262,13 +328,23 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             )}
             <button
               onClick={() => handleNumberPress('0')}
-              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleNumberPress('0');
+              }}
+              className="button-3d bg-gradient-to-br from-gray-200 to-gray-300 text-gray-800 font-bold text-2xl py-4 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               0
             </button>
             <button
               onClick={handleBackspace}
-              className="button-3d bg-gradient-to-br from-red-400 to-red-500 text-white font-bold text-xl py-4 rounded-xl shadow-card hover:shadow-card-hover flex items-center justify-center"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleBackspace();
+              }}
+              className="button-3d bg-gradient-to-br from-red-400 to-red-500 text-white font-bold text-xl py-4 rounded-xl shadow-card hover:shadow-card-hover flex items-center justify-center active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '60px' }}
             >
               <Delete className="w-6 h-6" />
             </button>
@@ -278,13 +354,23 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
           <div className="grid grid-cols-2 gap-3 mt-4">
             <button
               onClick={handleClear}
-              className="button-3d bg-gradient-to-br from-gray-400 to-gray-500 text-white font-bold py-3 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleClear();
+              }}
+              className="button-3d bg-gradient-to-br from-gray-400 to-gray-500 text-white font-bold py-3 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '48px' }}
             >
               Clear
             </button>
             <button
               onClick={onClose}
-              className="button-3d bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold py-3 rounded-xl shadow-card hover:shadow-card-hover"
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                onClose();
+              }}
+              className="button-3d bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold py-3 rounded-xl shadow-card hover:shadow-card-hover active:scale-95 transition-transform"
+              style={{ touchAction: 'manipulation', minHeight: '48px' }}
             >
               Done
             </button>
