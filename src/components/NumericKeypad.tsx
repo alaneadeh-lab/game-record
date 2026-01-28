@@ -51,34 +51,59 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
     }
   };
 
-  // Prevent body scrolling when keypad is open
+  // Prevent body scrolling when keypad is open (enhanced for mobile)
   useEffect(() => {
     // Store original styles
     const originalBodyOverflow = document.body.style.overflow;
     const originalBodyPosition = document.body.style.position;
     const originalBodyTop = document.body.style.top;
     const originalBodyWidth = document.body.style.width;
+    const originalBodyHeight = document.body.style.height;
     const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalHtmlPosition = document.documentElement.style.position;
     
-    // Prevent scrolling on both body and html
+    // Prevent scrolling on both body and html with mobile-specific fixes
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${window.scrollY}px`;
     document.body.style.width = '100%';
+    document.body.style.height = '100vh'; // Ensure full viewport height on mobile
     document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.position = 'fixed';
+    document.documentElement.style.width = '100%';
+    document.documentElement.style.height = '100vh';
     
-    // Prevent touch scrolling
-    const preventScroll = (e: Event) => e.preventDefault();
-    const preventWheel = (e: WheelEvent) => e.preventDefault();
-    const preventTouchMove = (e: TouchEvent) => {
-      if (e.target === document.body || e.target === document.documentElement) {
+    // More aggressive scroll prevention for mobile
+    const preventWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+    
+    const preventTouch = (e: TouchEvent) => {
+      // Only prevent if the target is the body, html, or window
+      if (e.target === document.body || e.target === document.documentElement || e.target === window) {
         e.preventDefault();
+        e.stopPropagation();
+        return false;
       }
     };
     
-    document.addEventListener('wheel', preventWheel, { passive: false });
-    document.addEventListener('touchmove', preventTouchMove, { passive: false });
-    document.addEventListener('scroll', preventScroll, { passive: false });
+    const preventScroll = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+    
+    // Add comprehensive event listeners with capture phase for mobile
+    document.addEventListener('wheel', preventWheel, { passive: false, capture: true });
+    document.addEventListener('touchstart', preventTouch, { passive: false, capture: true });
+    document.addEventListener('touchmove', preventTouch, { passive: false, capture: true });
+    document.addEventListener('touchend', preventTouch, { passive: false, capture: true });
+    document.addEventListener('scroll', preventScroll, { passive: false, capture: true });
+    
+    // Additional mobile-specific prevention
+    window.addEventListener('scroll', preventScroll, { passive: false, capture: true });
     
     return () => {
       // Restore original styles
@@ -86,28 +111,58 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
       document.body.style.position = originalBodyPosition;
       document.body.style.top = originalBodyTop;
       document.body.style.width = originalBodyWidth;
+      document.body.style.height = originalBodyHeight;
       document.documentElement.style.overflow = originalHtmlOverflow;
+      document.documentElement.style.position = originalHtmlPosition;
+      document.documentElement.style.width = '';
+      document.documentElement.style.height = '';
       
       // Restore scroll position
-      window.scrollTo(0, parseInt(document.body.style.top || '0') * -1);
+      const scrollY = parseInt(document.body.style.top || '0') * -1;
+      window.scrollTo(0, scrollY);
       
-      // Remove event listeners
-      document.removeEventListener('wheel', preventWheel);
-      document.removeEventListener('touchmove', preventTouchMove);
-      document.removeEventListener('scroll', preventScroll);
+      // Remove all event listeners
+      document.removeEventListener('wheel', preventWheel, true);
+      document.removeEventListener('touchstart', preventTouch, true);
+      document.removeEventListener('touchmove', preventTouch, true);
+      document.removeEventListener('touchend', preventTouch, true);
+      document.removeEventListener('scroll', preventScroll, true);
+      window.removeEventListener('scroll', preventScroll, true);
     };
   }, []);
 
   return (
     <>
-      {/* Full-screen backdrop that blocks all scroll events */}
+      {/* Full-screen backdrop that blocks all scroll events - enhanced for mobile */}
       <div 
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-        onTouchStart={(e) => e.preventDefault()}
-        onTouchMove={(e) => e.preventDefault()}
-        onTouchEnd={(e) => e.preventDefault()}
-        onWheel={(e) => e.preventDefault()}
-        onScroll={(e) => e.preventDefault()}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onTouchMove={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onWheel={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onScroll={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        style={{
+          touchAction: 'none',
+          overscrollBehavior: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
         {/* Modal content */}
         <div className="bg-white rounded-2xl shadow-3d max-w-sm w-full max-h-[90vh] overflow-hidden">
