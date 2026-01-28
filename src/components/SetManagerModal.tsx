@@ -1,11 +1,13 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import type { PlayerSet } from '../types';
+import type { Player, PlayerSet } from '../types';
 
 interface SetManagerModalProps {
   playerSets: PlayerSet[];
+  allPlayers: Player[];
   currentSetIndex: number;
   onSetChange: (index: number) => void;
+  onReorderSets: (newSets: PlayerSet[]) => void;
   onCreateSet: () => void;
   onDeleteSet: () => void;
   onClose: () => void;
@@ -13,12 +15,28 @@ interface SetManagerModalProps {
 
 export const SetManagerModal: React.FC<SetManagerModalProps> = ({
   playerSets,
+  allPlayers,
   currentSetIndex,
   onSetChange,
+  onReorderSets,
   onCreateSet,
   onDeleteSet,
   onClose,
 }) => {
+  const getPlayerNames = (playerIds: string[]) => {
+    return playerIds
+      .map(id => allPlayers.find(p => p.id === id)?.name)
+      .filter(Boolean)
+      .join(', ');
+  };
+
+  const moveSet = (fromIndex: number, toIndex: number) => {
+    const newSets = [...playerSets];
+    const [movedSet] = newSets.splice(fromIndex, 1);
+    newSets.splice(toIndex, 0, movedSet);
+    onReorderSets(newSets);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end justify-center z-50">
       <div className="bg-white rounded-t-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
@@ -44,21 +62,43 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
 
         <div className="space-y-2 max-h-[50vh] overflow-y-auto">
           {playerSets.map((set, index) => (
-            <button
-              key={set.id}
-              onClick={() => {
-                onSetChange(index);
-                onClose();
-              }}
-              className={`menu-btn w-full py-3 rounded-xl font-bold text-center transition-colors ${
-                index === currentSetIndex
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
-              }`}
-            >
-              {index === currentSetIndex ? '✓ ' : '➡️ '}
-              {set.name}
-            </button>
+            <div key={set.id} className="flex items-center gap-2">
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => index > 0 && moveSet(index, index - 1)}
+                  disabled={index === 0}
+                  className="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => index < playerSets.length - 1 && moveSet(index, index + 1)}
+                  disabled={index === playerSets.length - 1}
+                  className="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                >
+                  ▼
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  onSetChange(index);
+                  onClose();
+                }}
+                className={`flex-1 py-3 rounded-xl font-bold text-center transition-colors ${
+                  index === currentSetIndex
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  {index === currentSetIndex && <span>✓</span>}
+                  <div className="text-left">
+                    <div className="font-semibold">{getPlayerNames(set.playerIds) || 'Empty Set'}</div>
+                    <div className="text-xs opacity-75">{set.gameEntries.length} games</div>
+                  </div>
+                </div>
+              </button>
+            </div>
           ))}
         </div>
 

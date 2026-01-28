@@ -18,6 +18,7 @@ interface AdminPanelProps {
   onOpenPlayerInventory: () => void;
   onSetChange: (index: number) => void;
   onDeleteSet: () => void;
+  onReorderSets: (newSets: PlayerSet[]) => void;
   onRestoreFromMongo?: () => void;
 }
 
@@ -33,6 +34,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenPlayerInventory,
   onSetChange,
   onDeleteSet,
+  onReorderSets,
   onRestoreFromMongo,
 }) => {
   const [activeTab, setActiveTab] = useState<'games' | 'players'>('games');
@@ -375,8 +377,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {showSetManager && (
         <SetManagerModal
           playerSets={playerSets}
+          allPlayers={allPlayers}
           currentSetIndex={currentSetIndex}
           onSetChange={onSetChange}
+          onReorderSets={onReorderSets}
           onCreateSet={() => {
             setShowSetManager(false);
             if (onAddNewSet) onAddNewSet();

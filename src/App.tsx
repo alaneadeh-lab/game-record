@@ -265,6 +265,16 @@ function App() {
     });
   }, [currentSetIndex, playerSets.length]);
 
+  const handleReorderSets = useCallback((newSets: PlayerSet[]) => {
+    setPlayerSets(newSets);
+    // Update current set index if the current set moved
+    const currentSetId = playerSets[currentSetIndex]?.id;
+    const newIndex = newSets.findIndex(set => set.id === currentSetId);
+    if (newIndex !== -1 && newIndex !== currentSetIndex) {
+      setCurrentSetIndex(newIndex);
+    }
+  }, [currentSetIndex, playerSets]);
+
   const handleSaveNewSet = useCallback((playerIds: string[]) => {
     setPlayerSets((prev) => {
       const newSet: PlayerSet = {
@@ -687,6 +697,7 @@ function App() {
           }}
           onSetChange={handleSetChange}
           onDeleteSet={handleDeleteSet}
+          onReorderSets={handleReorderSets}
         />
       )}
 
@@ -694,8 +705,10 @@ function App() {
       {showSetMenu && (
         <SetManagerModal
           playerSets={playerSets}
+          allPlayers={allPlayers}
           currentSetIndex={currentSetIndex}
           onSetChange={handleSetChange}
+          onReorderSets={handleReorderSets}
           onCreateSet={handleCreateSet}
           onDeleteSet={handleDeleteSet}
           onClose={() => setShowSetMenu(false)}
