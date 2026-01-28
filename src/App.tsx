@@ -59,120 +59,9 @@ function App() {
       try {
         setIsLoading(true);
         const appData = await storageService.loadAppData();
-        
-        // If no players exist, create 4 default players
+
+        // Handle case where no data exists
         if (appData.allPlayers.length === 0) {
-          const defaultPlayers: Player[] = [
-            { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-          ];
-          setAllPlayers(defaultPlayers);
-          
-          // If no sets exist, create a default set with all players
-          if (appData.sets.length === 0) {
-            const defaultSet: PlayerSet = {
-              id: uuidv4(),
-              name: 'Default Set',
-              playerIds: defaultPlayers.map(p => p.id),
-              gameEntries: [],
-            };
-            await storageService.saveAppData({
-              allPlayers: defaultPlayers,
-              sets: [defaultSet],
-            });
-            setPlayerSets([defaultSet]);
-          } else {
-            await storageService.saveAppData({
-              allPlayers: defaultPlayers,
-              sets: appData.sets,
-            });
-            setPlayerSets(appData.sets);
-          }
-        } else {
-          // Preserve player data as loaded from storage (including stats)
-          // Stats are calculated per-set when displaying, but we preserve what was saved
-          setAllPlayers(appData.allPlayers);
-          
-          // If we have players but no sets, create a default set
-          if (appData.sets.length === 0 && appData.allPlayers.length >= 4) {
-            console.log('⚠️ No sets found but players exist, creating default set');
-            const defaultSet: PlayerSet = {
-              id: uuidv4(),
-              name: 'Default Set',
-              playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
-              gameEntries: [],
-            };
-            await storageService.saveAppData({
-              allPlayers: appData.allPlayers,
-              sets: [defaultSet],
-            });
-            setPlayerSets([defaultSet]);
-          } else {
-            setPlayerSets(appData.sets);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load data:', error);
-        // On error, try to load again but preserve what's loaded
-        try {
-          const appData = await storageService.loadAppData();
-          
-          // If no players exist, create 4 default players (consistent with main try block)
-          if (appData.allPlayers.length === 0) {
-            const defaultPlayers: Player[] = [
-              { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-              { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-              { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-              { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
-            ];
-            setAllPlayers(defaultPlayers);
-            
-            // If no sets exist, create a default set with all players
-            if (appData.sets.length === 0) {
-              const defaultSet: PlayerSet = {
-                id: uuidv4(),
-                name: 'Default Set',
-                playerIds: defaultPlayers.map(p => p.id),
-                gameEntries: [],
-              };
-              await storageService.saveAppData({
-                allPlayers: defaultPlayers,
-                sets: [defaultSet],
-              });
-              setPlayerSets([defaultSet]);
-            } else {
-              await storageService.saveAppData({
-                allPlayers: defaultPlayers,
-                sets: appData.sets,
-              });
-              setPlayerSets(appData.sets);
-            }
-          } else {
-            setAllPlayers(appData.allPlayers);
-            
-            // If we have players but no sets, create a default set
-            if (appData.sets.length === 0 && appData.allPlayers.length >= 4) {
-              console.log('⚠️ No sets found but players exist, creating default set');
-              const defaultSet: PlayerSet = {
-                id: uuidv4(),
-                name: 'Default Set',
-                playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
-                gameEntries: [],
-              };
-              await storageService.saveAppData({
-                allPlayers: appData.allPlayers,
-                sets: [defaultSet],
-              });
-              setPlayerSets([defaultSet]);
-            } else {
-              setPlayerSets(appData.sets);
-            }
-          }
-        } catch (retryError) {
-          console.error('Failed to load data on retry:', retryError);
-          // Even on retry failure, create default players to ensure app initialization
           const defaultPlayers: Player[] = [
             { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
             { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
@@ -185,13 +74,47 @@ function App() {
             playerIds: defaultPlayers.map(p => p.id),
             gameEntries: [],
           };
+
           setAllPlayers(defaultPlayers);
           setPlayerSets([defaultSet]);
+
+          // Save default data
+          await storageService.saveAppData({
+            allPlayers: defaultPlayers,
+            sets: [defaultSet],
+          });
+        } else {
+          // Data exists, use it
+          setAllPlayers(appData.allPlayers);
+          setPlayerSets(appData.sets.length > 0 ? appData.sets : [{
+            id: uuidv4(),
+            name: 'Default Set',
+            playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
+            gameEntries: [],
+          }]);
         }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        // Fallback to default data
+        const defaultPlayers: Player[] = [
+          { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+          { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+          { id: '3', name: 'Player 3', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+          { id: '4', name: 'Player 4', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
+        ];
+        const defaultSet: PlayerSet = {
+          id: uuidv4(),
+          name: 'Default Set',
+          playerIds: defaultPlayers.map(p => p.id),
+          gameEntries: [],
+        };
+        setAllPlayers(defaultPlayers);
+        setPlayerSets([defaultSet]);
       } finally {
         setIsLoading(false);
       }
     };
+
     loadData();
   }, []);
 

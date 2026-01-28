@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import PokerAnimation from './PokerAnimation';
-import TiredEmojiAnimation from './TiredEmojiAnimation';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Crown from './Crown';
-import FlySwarm from './FlySwarm';
 import type { Player } from '../types';
 import { calculateMedalPoints, getPlayerRank } from '../utils/gameLogic';
+
+// Lazy load animation components to reduce initial bundle size
+const PokerAnimation = lazy(() => import('./PokerAnimation'));
+const TiredEmojiAnimation = lazy(() => import('./TiredEmojiAnimation'));
+const FlySwarm = lazy(() => import('./FlySwarm'));
 
 interface SummaryRowProps {
   players: Player[];
@@ -94,10 +96,12 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
               
               {/* Fly Swarm for Last Place (Points row only) */}
               {isLastPlace && (
-                <FlySwarm
-                  size={112}
-                  className="absolute -top-8 -right-2 z-50 pointer-events-none"
-                />
+                <Suspense fallback={<div className="w-28 h-28" />}>
+                  <FlySwarm
+                    size={112}
+                    className="absolute -top-8 -right-2 z-50 pointer-events-none"
+                  />
+                </Suspense>
               )}
               
               <div
@@ -126,7 +130,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
                 </div>
               </div>
               {isFattLeader && (
-                <>
+                <Suspense fallback={<div className="w-16 h-16" />}>
                   {showPokerAnimation ? (
                     <PokerAnimation
                       size={64}
@@ -138,7 +142,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({ players, type, title }) 
                       className="absolute -top-8 -right-4 z-50"
                     />
                   )}
-                </>
+                </Suspense>
               )}
             </div>
           );
