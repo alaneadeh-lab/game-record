@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
 import { SetManagerModal } from './components/SetManagerModal';
@@ -718,6 +718,42 @@ function App() {
       {/* Main Players View with Swipe Animation */}
       {!showAdmin && !showPlayerInventory && (
         <div className="flex-1 flex flex-col relative z-10 min-h-0 overflow-hidden">
+          {/* Navigation Controls */}
+          {playerSets.length > 1 && (
+            <div className="flex items-center justify-between px-4 py-2 bg-black/20 backdrop-blur-sm">
+              <button
+                onClick={handleSwipeRight}
+                disabled={currentSetIndex === 0}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
+              
+              {/* Set Indicators */}
+              <div className="flex space-x-2">
+                {playerSets.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSetChange(index)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentSetIndex
+                        ? 'bg-white'
+                        : 'bg-white/40 hover:bg-white/60'
+                    }`}
+                  />
+                ))}
+              </div>
+              
+              <button
+                onClick={handleSwipeLeft}
+                disabled={currentSetIndex === playerSets.length - 1}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          )}
+          
           {/* Swipeable Container */}
           <div
             ref={swipeContainerRef}
@@ -726,8 +762,9 @@ function App() {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             style={{
-              transform: `translateX(${swipeOffset}%)`,
+              transform: `translate3d(${swipeOffset}%, 0, 0)`,
               transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              willChange: isSwiping ? 'transform' : 'auto',
             }}
           >
             {/* Render all sets in a horizontal row */}
@@ -738,8 +775,9 @@ function App() {
                   key={set.id}
                   className="absolute inset-0 w-full flex flex-col"
                   style={{
-                    transform: `translateX(${offset + swipeOffset}%)`,
+                    transform: `translate3d(${offset + swipeOffset}%, 0, 0)`,
                     transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    willChange: isSwiping ? 'transform' : 'auto',
                   }}
                 >
                   <div 
