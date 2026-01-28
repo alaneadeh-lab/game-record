@@ -130,7 +130,7 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
           onClose={handleKeypadClose}
           onCancel={handleKeypadCancel}
           allowNegative={activeKeypad.field === 'score'}
-          title={`${players.find((p) => p.id === activeKeypad.playerId)?.name} - ${activeKeypad.field === 'score' ? 'Score' : 'Fatts'}`}
+          title={`${players.find((p) => p.id === activeKeypad.playerId)?.name} - ${activeKeypad.field === 'score' ? 'نتيجة' : 'فتة'}`}
           playerColor={getPlayerColor(activeKeypad.playerId)}
         />
       )}
