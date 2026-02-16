@@ -205,6 +205,19 @@ app.get('/api/app-data', async (req, res) => {
     
     if (doc) {
       console.log(`✅ Loaded app data for user: ${userId}`);
+      console.log(`📊 Document structure:`, {
+        hasData: !!doc.data,
+        dataKeys: doc.data ? Object.keys(doc.data) : [],
+        playersCount: doc.data?.allPlayers?.length || 0,
+        setsCount: doc.data?.sets?.length || 0,
+        totalGames: doc.data?.sets?.reduce((sum: number, set: any) => sum + (set.gameEntries?.length || 0), 0) || 0,
+        sampleSet: doc.data?.sets?.[0] ? {
+          id: doc.data.sets[0].id,
+          name: doc.data.sets[0].name,
+          playerCount: doc.data.sets[0].playerIds?.length || 0,
+          gameCount: doc.data.sets[0].gameEntries?.length || 0,
+        } : null,
+      });
       res.json(doc.data);
     } else {
       // Return default structure

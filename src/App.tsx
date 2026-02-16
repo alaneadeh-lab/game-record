@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
 import { SetManagerModal } from './components/SetManagerModal';
@@ -88,10 +88,21 @@ function App() {
     const loadData = async () => {
       try {
         setIsLoading(true);
+        console.log('🔄 Loading app data...');
         const appData = await storageService.loadAppData();
+        
+        console.log('📦 Loaded data structure:', {
+          playersCount: appData.allPlayers?.length || 0,
+          setsCount: appData.sets?.length || 0,
+          hasPlayers: !!appData.allPlayers,
+          hasSets: !!appData.sets,
+          playersType: typeof appData.allPlayers,
+          setsType: typeof appData.sets,
+        });
 
         // Handle case where no data exists
-        if (appData.allPlayers.length === 0) {
+        if (!appData.allPlayers || appData.allPlayers.length === 0) {
+          console.log('⚠️ No players found, creating default players');
           const defaultPlayers: Player[] = [
             { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
             { id: '2', name: 'Player 2', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
@@ -115,16 +126,33 @@ function App() {
           });
         } else {
           // Data exists, use it
+          console.log('✅ Using loaded data:', {
+            players: appData.allPlayers.length,
+            sets: appData.sets?.length || 0,
+          });
+          
           setAllPlayers(appData.allPlayers);
-          setPlayerSets(appData.sets.length > 0 ? appData.sets : [{
-            id: uuidv4(),
-            name: 'Default Set',
-            playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
-            gameEntries: [],
-          }]);
+          
+          // If we have players but no sets, create a default set
+          if (!appData.sets || appData.sets.length === 0) {
+            console.log('⚠️ No sets found but players exist, creating default set');
+            const defaultSet: PlayerSet = {
+              id: uuidv4(),
+              name: 'Default Set',
+              playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
+              gameEntries: [],
+            };
+            setPlayerSets([defaultSet]);
+          } else {
+            setPlayerSets(appData.sets);
+          }
         }
       } catch (error) {
-        console.error('Failed to load data:', error);
+        console.error('❌ Failed to load data:', error);
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         // Fallback to default data
         const defaultPlayers: Player[] = [
           { id: '1', name: 'Player 1', points: 0, fatts: 0, goldMedals: 0, silverMedals: 0, bronzeMedals: 0, tomatoes: 0 },
@@ -532,7 +560,17 @@ function App() {
     };
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-800 via-green-900 to-emerald-900">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-800 via-green-900 to-emerald-900 relative">
+        {/* Admin Button - Fixed position */}
+        <button
+          onClick={handleAdminClick}
+          className="fixed top-4 right-4 w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d z-50"
+          aria-label="Open admin"
+          title="Admin Tools"
+        >
+          <Settings className="w-7 h-7" />
+        </button>
+
         <div className="text-center">
           <div className="text-2xl font-bold text-white mb-2">No Player Set</div>
           <div className="text-white opacity-75 mb-4">
@@ -566,6 +604,32 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Admin Panel - Show even when no set exists */}
+        {showAdmin && (
+          <AdminPanel
+            playerSet={{
+              id: 'temp',
+              name: 'No Set Selected',
+              playerIds: allPlayers.slice(0, 4).map(p => p.id),
+              gameEntries: [],
+            }}
+            allPlayers={allPlayers}
+            playerSets={playerSets}
+            currentSetIndex={0}
+            onUpdateSet={handleUpdateSet}
+            onUpdateAllPlayers={handleUpdateAllPlayers}
+            onClose={() => setShowAdmin(false)}
+            onAddNewSet={handleCreateSet}
+            onOpenPlayerInventory={() => {
+              setShowAdmin(false);
+              setShowPlayerInventory(true);
+            }}
+            onSetChange={handleSetChange}
+            onDeleteSet={handleDeleteSet}
+            onReorderSets={handleReorderSets}
+          />
+        )}
       </div>
     );
   }

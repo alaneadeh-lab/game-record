@@ -14,9 +14,18 @@ class MongoDBService implements IStorageService {
   }
 
   async loadAppData(): Promise<AppData> {
+    const userId = import.meta.env.VITE_USER_ID || 'default';
+    const timeoutMs = 30000; // 30 second timeout
+    
     try {
-      const userId = import.meta.env.VITE_USER_ID || 'default';
-      const response = await fetch(`${this.apiUrl}/app-data?userId=${userId}`);
+      // Create a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout: MongoDB fetch took too long')), timeoutMs);
+      });
+
+      // Race between fetch and timeout
+      const fetchPromise = fetch(`${this.apiUrl}/app-data?userId=${userId}`);
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -28,15 +37,44 @@ class MongoDBService implements IStorageService {
       }
 
       const data: AppData = await response.json();
+      
+      console.log('📦 Raw data received from MongoDB:', {
+        hasData: !!data,
+        dataType: typeof data,
+        keys: data ? Object.keys(data) : [],
+        allPlayersType: data?.allPlayers ? typeof data.allPlayers : 'undefined',
+        setsType: data?.sets ? typeof data.sets : 'undefined',
+        allPlayersLength: Array.isArray(data?.allPlayers) ? data.allPlayers.length : 'not array',
+        setsLength: Array.isArray(data?.sets) ? data.sets.length : 'not array',
+      });
+      
+      // Validate data structure
+      if (!data || typeof data !== 'object') {
+        console.error('❌ Invalid data structure:', data);
+        throw new Error('Invalid data structure received from MongoDB');
+      }
+      
+      // Ensure allPlayers and sets are arrays
+      const allPlayers = Array.isArray(data.allPlayers) ? data.allPlayers : [];
+      const sets = Array.isArray(data.sets) ? data.sets : [];
+      
+      console.log('📊 Processed data:', {
+        playersCount: allPlayers.length,
+        setsCount: sets.length,
+        playersSample: allPlayers.slice(0, 2).map(p => ({ id: p.id, name: p.name })),
+        setsSample: sets.slice(0, 2).map(s => ({ id: s.id, name: s.name, games: s.gameEntries?.length || 0 })),
+      });
+      
       // Ensure all players have tomatoes field (backward compatibility)
-      const playersWithTomatoes = data.allPlayers.map((p: any) => ({
+      const playersWithTomatoes = allPlayers.map((p: any) => ({
         ...p,
         tomatoes: p.tomatoes ?? 0,
       }));
-      console.log('✅ Loaded app data from MongoDB:', data.sets.length, 'sets,', playersWithTomatoes.length, 'players');
+      
+      console.log('✅ Loaded app data from MongoDB:', sets.length, 'sets,', playersWithTomatoes.length, 'players');
       return {
-        ...data,
         allPlayers: playersWithTomatoes,
+        sets,
       };
     } catch (error) {
       console.error('❌ Error loading app data from MongoDB:', error);
