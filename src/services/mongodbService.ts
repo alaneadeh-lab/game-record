@@ -107,6 +107,33 @@ class MongoDBService implements IStorageService {
   async saveAppData(data: AppData): Promise<void> {
     try {
       const userId = import.meta.env.VITE_USER_ID || 'default';
+      
+      // DIAGNOSTIC: Log what we're sending to MongoDB
+      const totalGameEntries = data.sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+      const allPlayersWithZeros = data.allPlayers.filter(p => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
+      const isBlankTemplate = data.allPlayers.length > 0 && allPlayersWithZeros === data.allPlayers.length && totalGameEntries === 0;
+      
+      console.log('💾 [DIAGNOSTIC] MongoDB save (client-side):', {
+        apiUrl: this.apiUrl,
+        endpoint: '/app-data',
+        method: 'PUT',
+        userId: userId,
+        queryFilter: { userId },
+        payloadKeys: Object.keys({ userId, data }),
+        dataKeys: Object.keys(data),
+        allPlayersCount: data.allPlayers.length,
+        setsCount: data.sets.length,
+        totalGameEntries: totalGameEntries,
+        gameEntriesPerSet: data.sets.map(s => ({
+          setId: s.id,
+          setName: s.name,
+          gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+        })),
+        allPlayersWithZeros: allPlayersWithZeros,
+        isBlankTemplate: isBlankTemplate,
+        warning: isBlankTemplate ? '⚠️ WARNING: Saving blank template (all zeros, no entries)!' : null,
+      });
+      
       const response = await fetch(`${this.apiUrl}/app-data`, {
         method: 'PUT',
         headers: {

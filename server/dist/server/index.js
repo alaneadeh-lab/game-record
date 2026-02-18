@@ -448,6 +448,50 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
                 }
             }
         }
+        // Get distinct userIds (limit 20)
+        const distinctUserIds = await collection.distinct('userId');
+        const distinctUserIdsLimited = distinctUserIds.slice(0, 20);
+        // Analyze all documents for game entries
+        const allDocsAnalysis = allDocs.map((doc) => {
+            const data = doc.data || {};
+            const sets = data.sets || doc.sets || [];
+            const totalGameEntries = sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+            // Check for other candidate keys
+            const candidateKeys = ['gameEntries', 'games', 'entries', 'records', 'rounds', 'history', 'hands', 'events'];
+            const foundCandidateKeys = {};
+            for (const key of candidateKeys) {
+                // Check in sets
+                const inSets = sets.reduce((sum, set) => {
+                    if (set && key in set && Array.isArray(set[key])) {
+                        return sum + set[key].length;
+                    }
+                    return sum;
+                }, 0);
+                if (inSets > 0) {
+                    foundCandidateKeys[`sets[].${key}`] = inSets;
+                }
+                // Check at top level in data
+                if (data[key] && Array.isArray(data[key]) && data[key].length > 0) {
+                    foundCandidateKeys[`data.${key}`] = data[key].length;
+                }
+                // Check at root level
+                if (doc[key] && Array.isArray(doc[key]) && doc[key].length > 0) {
+                    foundCandidateKeys[`root.${key}`] = doc[key].length;
+                }
+            }
+            return {
+                userId: doc.userId,
+                topLevelKeys: Object.keys(doc),
+                hasData: !!doc.data,
+                dataKeys: doc.data ? Object.keys(doc.data) : [],
+                allPlayersCount: data.allPlayers?.length || doc.allPlayers?.length || 0,
+                setsCount: sets.length,
+                totalGameEntries: totalGameEntries,
+                candidateKeysFound: foundCandidateKeys,
+                updatedAt: doc.updatedAt,
+                createdAt: doc.createdAt || doc._id?.getTimestamp?.() || 'unknown',
+            };
+        });
         const diagnostic = {
             // Database connection info
             dbName: DB_NAME,
@@ -459,8 +503,11 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
             // Document counts
             documentCount: documentCount,
             userDocumentCount: userDocumentCount,
+            distinctUserIds: distinctUserIdsLimited,
+            distinctUserIdsCount: distinctUserIds.length,
             // Found document structure
             foundDocument: foundDoc ? {
+                docFound: true,
                 topLevelKeys: Object.keys(foundDoc),
                 hasDataField: 'data' in foundDoc,
                 dataKeys: foundDoc.data ? Object.keys(foundDoc.data) : [],
@@ -472,7 +519,9 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
                 setsIsArray: Array.isArray(foundDoc.sets),
                 allPlayersLength: Array.isArray(foundDoc.allPlayers) ? foundDoc.allPlayers.length : 'N/A',
                 setsLength: Array.isArray(foundDoc.sets) ? foundDoc.sets.length : 'N/A',
-            } : null,
+            } : {
+                docFound: false,
+            },
             // Game entries analysis
             gameEntries: {
                 found: gameEntriesFound,
@@ -480,7 +529,7 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
                 count: gameEntriesCount,
                 searchedKeys: searchedKeys,
             },
-            // Detailed document analysis
+            // Detailed document analysis for requested user
             userDocuments: docs.map((doc) => ({
                 userId: doc.userId,
                 topLevelKeys: Object.keys(doc),
@@ -521,14 +570,8 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
                 updatedAt: doc.updatedAt,
                 createdAt: doc.createdAt || doc._id?.getTimestamp?.() || 'unknown',
             })),
-            allDocumentsSummary: allDocs.map((doc) => ({
-                userId: doc.userId,
-                hasData: !!doc.data,
-                topLevelKeys: Object.keys(doc),
-                playersCount: doc.data?.allPlayers?.length || doc.allPlayers?.length || 0,
-                setsCount: doc.data?.sets?.length || doc.sets?.length || 0,
-                totalGames: (doc.data?.sets || doc.sets || []).reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
-            })),
+            // All documents summary with game entry counts
+            allDocumentsSummary: allDocsAnalysis,
         };
         addCorsHeaders(req, res);
         res.json(diagnostic);
@@ -597,7 +640,45 @@ app.put('/api/app-data', async (req, res) => {
             return res.status(400).json({ error: 'Invalid data format' });
         }
         const collection = db.collection(COLLECTION_NAME);
+        // DIAGNOSTIC: Check if this is a blank template before saving
+        const totalGameEntries = data.sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        const allPlayersWithZeros = data.allPlayers.filter((p) => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
+        const isBlankTemplate = data.allPlayers.length > 0 && allPlayersWithZeros === data.allPlayers.length && totalGameEntries === 0;
+        // DIAGNOSTIC: Get existing document to check if we're overwriting
+        const existingDoc = await collection.findOne({ userId });
+        const existingGameEntries = existingDoc?.data?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) ||
+            existingDoc?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+        // DIAGNOSTIC: Log comprehensive save info
+        console.log('💾 [DIAGNOSTIC] MongoDB save (server-side):', {
+            dbName: DB_NAME,
+            collectionName: COLLECTION_NAME,
+            userId: userId,
+            queryFilter: { userId },
+            operation: 'updateOne (with $set)',
+            isUpsert: true,
+            payloadKeys: Object.keys(req.body),
+            dataKeys: Object.keys(data),
+            allPlayersCount: data.allPlayers.length,
+            setsCount: data.sets.length,
+            totalGameEntries: totalGameEntries,
+            gameEntriesPerSet: data.sets.map((s) => ({
+                setId: s.id,
+                setName: s.name,
+                gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+            })),
+            allPlayersWithZeros: allPlayersWithZeros,
+            isBlankTemplate: isBlankTemplate,
+            existingDocFound: !!existingDoc,
+            existingGameEntries: existingGameEntries,
+            willOverwrite: existingDoc && existingGameEntries > 0 && totalGameEntries === 0,
+            warning: isBlankTemplate ? '⚠️ WARNING: Saving blank template (all zeros, no entries)!' : null,
+            overwriteWarning: existingDoc && existingGameEntries > 0 && totalGameEntries === 0
+                ? `⚠️ CRITICAL: Overwriting document with ${existingGameEntries} game entries with blank template!`
+                : null,
+        });
         // Upsert (update or insert)
+        // NOTE: This uses $set which REPLACES the entire 'data' field
+        // If data.gameEntries is empty, this WILL overwrite existing game entries!
         await collection.updateOne({ userId }, {
             $set: {
                 userId,

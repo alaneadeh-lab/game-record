@@ -241,6 +241,28 @@ function App() {
           allPlayers,
           sets: playerSets,
         };
+        
+        // DIAGNOSTIC: Log what we're about to save
+        const totalGameEntries = playerSets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        const allPlayersWithZeros = allPlayers.filter(p => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
+        const isBlankTemplate = allPlayers.length > 0 && allPlayersWithZeros === allPlayers.length && totalGameEntries === 0;
+        
+        console.log('💾 [DIAGNOSTIC] Client-side save triggered:', {
+          persistenceMethod: 'MongoDB (via storageService.saveAppData)',
+          appDataKeys: Object.keys(appData),
+          allPlayersCount: appData.allPlayers.length,
+          setsCount: appData.sets.length,
+          totalGameEntries: totalGameEntries,
+          gameEntriesPerSet: appData.sets.map(s => ({
+            setId: s.id,
+            setName: s.name,
+            gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+          })),
+          allPlayersWithZeros: allPlayersWithZeros,
+          isBlankTemplate: isBlankTemplate,
+          warning: isBlankTemplate ? '⚠️ WARNING: This looks like a blank template (all players have zeros, no game entries)!' : null,
+        });
+        
         await storageService.saveAppData(appData);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
@@ -521,11 +543,28 @@ function App() {
       date: new Date().toISOString(),
     };
 
-    // Update the set with new game entry (stats are calculated per-set on display)
-    handleUpdateSet({
-      ...set,
-      gameEntries: [...set.gameEntries, newEntry],
+    // DIAGNOSTIC: Log game entry being recorded
+    const updatedGameEntries = [...set.gameEntries, newEntry];
+    console.log('🎮 [DIAGNOSTIC] Game entry recorded:', {
+      memoryPath: `playerSets[${currentSetIndex}].gameEntries`,
+      beforeCount: set.gameEntries.length,
+      afterCount: updatedGameEntries.length,
+      newEntryId: newEntry.id,
+      newEntryDate: newEntry.date,
+      setId: set.id,
+      setName: set.name,
+      totalGameEntriesInMemory: updatedGameEntries.length,
+      allSetsGameEntriesCount: playerSets.map(s => s.gameEntries.length),
     });
+
+    // Update the set with new game entry (stats are calculated per-set on display)
+    const updatedSet = {
+      ...set,
+      gameEntries: updatedGameEntries,
+    };
+    
+    console.log('💾 [DIAGNOSTIC] About to call handleUpdateSet, which will trigger save effect');
+    handleUpdateSet(updatedSet);
 
     setShowGameForm(false);
   }, [currentSetIndex, playerSets, handleUpdateSet]);
