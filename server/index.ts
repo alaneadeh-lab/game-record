@@ -201,10 +201,96 @@ app.get('/api/app-data', async (req, res) => {
     const userId = req.query.userId as string || 'default';
     const collection = db.collection(COLLECTION_NAME);
     
+    // DIAGNOSTIC: Log database and collection info
+    console.log(`🔍 [DIAGNOSTIC] Loading app data:`, {
+      dbName: DB_NAME,
+      collectionName: COLLECTION_NAME,
+      userId: userId,
+      queryFilter: { userId },
+    });
+    
     const doc = await collection.findOne({ userId });
     
     if (doc) {
-      console.log(`✅ Loaded app data for user: ${userId}`);
+      console.log(`✅ [DIAGNOSTIC] Document found for user: ${userId}`);
+      
+      // DIAGNOSTIC: Log document structure
+      const topLevelKeys = Object.keys(doc);
+      const dataKeys = doc.data ? Object.keys(doc.data) : [];
+      const docDataKeys = doc.data ? Object.keys(doc.data) : [];
+      
+      console.log(`📊 [DIAGNOSTIC] Document structure:`, {
+        topLevelKeys: topLevelKeys,
+        hasDataField: 'data' in doc,
+        dataKeys: docDataKeys,
+        hasAllPlayersAtRoot: 'allPlayers' in doc,
+        hasSetsAtRoot: 'sets' in doc,
+        allPlayersType: typeof doc.allPlayers,
+        setsType: typeof doc.sets,
+        allPlayersIsArray: Array.isArray(doc.allPlayers),
+        setsIsArray: Array.isArray(doc.sets),
+        allPlayersLength: Array.isArray(doc.allPlayers) ? doc.allPlayers.length : 'N/A',
+        setsLength: Array.isArray(doc.sets) ? doc.sets.length : 'N/A',
+      });
+      
+      // DIAGNOSTIC: Check for game entries in various locations
+      let gameEntriesFound = false;
+      let gameEntriesLocation = 'none';
+      let gameEntriesCount = 0;
+      
+      // Check in doc.data.sets[].gameEntries
+      if (doc.data?.sets && Array.isArray(doc.data.sets)) {
+        const totalInDataSets = doc.data.sets.reduce((sum: number, set: any) => {
+          if (Array.isArray(set.gameEntries)) {
+            return sum + set.gameEntries.length;
+          }
+          return sum;
+        }, 0);
+        if (totalInDataSets > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = 'doc.data.sets[].gameEntries';
+          gameEntriesCount = totalInDataSets;
+        }
+      }
+      
+      // Check in doc.sets[].gameEntries (root level)
+      if (!gameEntriesFound && doc.sets && Array.isArray(doc.sets)) {
+        const totalInRootSets = doc.sets.reduce((sum: number, set: any) => {
+          if (Array.isArray(set.gameEntries)) {
+            return sum + set.gameEntries.length;
+          }
+          return sum;
+        }, 0);
+        if (totalInRootSets > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = 'doc.sets[].gameEntries';
+          gameEntriesCount = totalInRootSets;
+        }
+      }
+      
+      // Check for other possible keys
+      const possibleGameEntryKeys = ['gameEntries', 'games', 'entries', 'records', 'history'];
+      for (const key of possibleGameEntryKeys) {
+        if (doc.data && key in doc.data && Array.isArray(doc.data[key]) && doc.data[key].length > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = `doc.data.${key}`;
+          gameEntriesCount = doc.data[key].length;
+          break;
+        }
+        if (key in doc && Array.isArray(doc[key]) && doc[key].length > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = `doc.${key}`;
+          gameEntriesCount = doc[key].length;
+          break;
+        }
+      }
+      
+      console.log(`🎮 [DIAGNOSTIC] Game entries search:`, {
+        gameEntriesFound: gameEntriesFound,
+        gameEntriesLocation: gameEntriesLocation,
+        gameEntriesCount: gameEntriesCount,
+        searchedKeys: possibleGameEntryKeys,
+      });
       
       // Handle both structures: data nested or at root level (after restore)
       let appData: AppData;
@@ -226,8 +312,10 @@ app.get('/api/app-data', async (req, res) => {
         appData = { allPlayers: [], sets: [] };
       }
       
-      console.log(`📊 Document structure:`, {
-        hasData: !!appData,
+      // DIAGNOSTIC: Log final appData structure
+      console.log(`📊 [DIAGNOSTIC] Final appData structure:`, {
+        hasAppData: !!appData,
+        appDataKeys: Object.keys(appData),
         playersCount: appData.allPlayers?.length || 0,
         setsCount: appData.sets?.length || 0,
         totalGames: appData.sets?.reduce((sum: number, set: any) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
@@ -235,6 +323,7 @@ app.get('/api/app-data', async (req, res) => {
           id: s.id,
           name: s.name,
           playerCount: Array.isArray(s.playerIds) ? s.playerIds.length : 0,
+          setKeys: Object.keys(s),
           hasGameEntries: 'gameEntries' in s,
           gameEntriesType: typeof s.gameEntries,
           gameEntriesIsArray: Array.isArray(s.gameEntries),
@@ -249,7 +338,7 @@ app.get('/api/app-data', async (req, res) => {
         allPlayers: [],
         sets: [],
       };
-      console.log(`ℹ️ No data found for user: ${userId}, returning default`);
+      console.log(`ℹ️ [DIAGNOSTIC] No document found for user: ${userId}, returning default`);
       res.json(defaultData);
     }
   } catch (error) {
@@ -269,19 +358,119 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
     const userId = req.query.userId as string || 'default';
     const collection = db.collection(COLLECTION_NAME);
     
+    // Get document count
+    const documentCount = await collection.countDocuments({});
+    const userDocumentCount = await collection.countDocuments({ userId });
+    
     // Get all documents for this user (in case there are multiple)
     const docs = await collection.find({ userId }).toArray();
     
     // Get all documents regardless of userId (for debugging)
     const allDocs = await collection.find({}).toArray();
     
+    // Extract MongoDB host from URI (redact credentials)
+    const mongoUriHost = MONGODB_URI_RAW 
+      ? MONGODB_URI_RAW.replace(/mongodb\+srv:\/\/([^:]+):([^@]+)@/, 'mongodb+srv://****:****@')
+      : 'not configured';
+    
+    // Analyze the found document for game entries
+    const foundDoc = docs.length > 0 ? docs[0] : null;
+    let gameEntriesFound = false;
+    let gameEntriesLocation = 'none';
+    let gameEntriesCount = 0;
+    const searchedKeys = ['gameEntries', 'games', 'entries', 'records', 'history'];
+    
+    if (foundDoc) {
+      // Check in doc.data.sets[].gameEntries
+      if (foundDoc.data?.sets && Array.isArray(foundDoc.data.sets)) {
+        const totalInDataSets = foundDoc.data.sets.reduce((sum: number, set: any) => {
+          if (Array.isArray(set.gameEntries)) {
+            return sum + set.gameEntries.length;
+          }
+          return sum;
+        }, 0);
+        if (totalInDataSets > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = 'doc.data.sets[].gameEntries';
+          gameEntriesCount = totalInDataSets;
+        }
+      }
+      
+      // Check in doc.sets[].gameEntries (root level)
+      if (!gameEntriesFound && foundDoc.sets && Array.isArray(foundDoc.sets)) {
+        const totalInRootSets = foundDoc.sets.reduce((sum: number, set: any) => {
+          if (Array.isArray(set.gameEntries)) {
+            return sum + set.gameEntries.length;
+          }
+          return sum;
+        }, 0);
+        if (totalInRootSets > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = 'doc.sets[].gameEntries';
+          gameEntriesCount = totalInRootSets;
+        }
+      }
+      
+      // Check for other possible keys
+      for (const key of searchedKeys) {
+        if (foundDoc.data && key in foundDoc.data && Array.isArray(foundDoc.data[key]) && foundDoc.data[key].length > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = `doc.data.${key}`;
+          gameEntriesCount = foundDoc.data[key].length;
+          break;
+        }
+        if (key in foundDoc && Array.isArray(foundDoc[key]) && foundDoc[key].length > 0) {
+          gameEntriesFound = true;
+          gameEntriesLocation = `doc.${key}`;
+          gameEntriesCount = foundDoc[key].length;
+          break;
+        }
+      }
+    }
+    
     const diagnostic = {
+      // Database connection info
+      dbName: DB_NAME,
+      collectionName: COLLECTION_NAME,
+      mongoUriHost: mongoUriHost,
+      
+      // Query info
       requestedUserId: userId,
-      documentsForUser: docs.length,
-      totalDocuments: allDocs.length,
+      queryFilter: { userId },
+      
+      // Document counts
+      documentCount: documentCount,
+      userDocumentCount: userDocumentCount,
+      
+      // Found document structure
+      foundDocument: foundDoc ? {
+        topLevelKeys: Object.keys(foundDoc),
+        hasDataField: 'data' in foundDoc,
+        dataKeys: foundDoc.data ? Object.keys(foundDoc.data) : [],
+        hasAllPlayersAtRoot: 'allPlayers' in foundDoc,
+        hasSetsAtRoot: 'sets' in foundDoc,
+        allPlayersType: typeof foundDoc.allPlayers,
+        setsType: typeof foundDoc.sets,
+        allPlayersIsArray: Array.isArray(foundDoc.allPlayers),
+        setsIsArray: Array.isArray(foundDoc.sets),
+        allPlayersLength: Array.isArray(foundDoc.allPlayers) ? foundDoc.allPlayers.length : 'N/A',
+        setsLength: Array.isArray(foundDoc.sets) ? foundDoc.sets.length : 'N/A',
+      } : null,
+      
+      // Game entries analysis
+      gameEntries: {
+        found: gameEntriesFound,
+        location: gameEntriesLocation,
+        count: gameEntriesCount,
+        searchedKeys: searchedKeys,
+      },
+      
+      // Detailed document analysis
       userDocuments: docs.map((doc: any) => ({
         userId: doc.userId,
+        topLevelKeys: Object.keys(doc),
         hasData: !!doc.data,
+        dataKeys: doc.data ? Object.keys(doc.data) : [],
         dataStructure: doc.data ? {
           hasAllPlayers: !!doc.data.allPlayers,
           hasSets: !!doc.data.sets,
@@ -290,7 +479,11 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
           setsDetails: Array.isArray(doc.data.sets) ? doc.data.sets.map((set: any) => ({
             id: set.id,
             name: set.name,
+            setKeys: Object.keys(set),
             playerIdsCount: Array.isArray(set.playerIds) ? set.playerIds.length : 'not array',
+            hasGameEntries: 'gameEntries' in set,
+            gameEntriesType: typeof set.gameEntries,
+            gameEntriesIsArray: Array.isArray(set.gameEntries),
             gameEntriesCount: Array.isArray(set.gameEntries) ? set.gameEntries.length : 'not array',
             gameEntriesSample: Array.isArray(set.gameEntries) && set.gameEntries.length > 0 
               ? set.gameEntries.slice(0, 2).map((ge: any) => ({
@@ -316,9 +509,10 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
       allDocumentsSummary: allDocs.map((doc: any) => ({
         userId: doc.userId,
         hasData: !!doc.data,
-        playersCount: doc.data?.allPlayers?.length || 0,
-        setsCount: doc.data?.sets?.length || 0,
-        totalGames: doc.data?.sets?.reduce((sum: number, set: any) => 
+        topLevelKeys: Object.keys(doc),
+        playersCount: doc.data?.allPlayers?.length || doc.allPlayers?.length || 0,
+        setsCount: doc.data?.sets?.length || doc.sets?.length || 0,
+        totalGames: (doc.data?.sets || doc.sets || []).reduce((sum: number, set: any) => 
           sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
       })),
     };

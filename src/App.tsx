@@ -141,14 +141,39 @@ function App() {
           
           // Warn if no game entries found
           if (totalGames === 0 && appData.sets && appData.sets.length > 0) {
+            // DIAGNOSTIC: Expanded warning with detailed info
+            const searchedKey = 'sets[].gameEntries';
+            const appDataKeys = Object.keys(appData);
+            const setsKeys = appData.sets.length > 0 ? Object.keys(appData.sets[0]) : [];
+            
             console.warn('⚠️ WARNING: Data loaded but NO GAME ENTRIES found!', {
-              setsCount: appData.sets.length,
+              // What we searched for
+              searchedKey: searchedKey,
+              expectedLocation: 'appData.sets[].gameEntries',
+              
+              // What keys actually exist
+              appDataKeys: appDataKeys,
+              firstSetKeys: setsKeys,
+              
+              // Data preview
+              playersCount: appData.allPlayers?.length || 0,
+              setsCount: appData.sets?.length || 0,
+              totalGameEntries: totalGames,
+              
+              // Detailed set analysis
               allSets: appData.sets.map((s: any) => ({
                 name: s.name,
                 id: s.id,
+                setKeys: Object.keys(s),
+                hasGameEntries: 'gameEntries' in s,
                 gameEntriesType: typeof s.gameEntries,
                 gameEntriesIsArray: Array.isArray(s.gameEntries),
                 gameEntriesLength: Array.isArray(s.gameEntries) ? s.gameEntries.length : 'N/A',
+                // Check for alternative keys
+                hasGames: 'games' in s,
+                hasEntries: 'entries' in s,
+                hasRecords: 'records' in s,
+                hasHistory: 'history' in s,
               })),
             });
             console.log('💡 Tip: Check the diagnostic endpoint: fetch("/api/app-data/diagnostic").then(r => r.json()).then(console.log)');
