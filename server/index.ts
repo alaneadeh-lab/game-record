@@ -279,7 +279,7 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
       requestedUserId: userId,
       documentsForUser: docs.length,
       totalDocuments: allDocs.length,
-      userDocuments: docs.map(doc => ({
+      userDocuments: docs.map((doc: any) => ({
         userId: doc.userId,
         hasData: !!doc.data,
         dataStructure: doc.data ? {
@@ -313,7 +313,7 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
         updatedAt: doc.updatedAt,
         createdAt: doc.createdAt || doc._id?.getTimestamp?.() || 'unknown',
       })),
-      allDocumentsSummary: allDocs.map(doc => ({
+      allDocumentsSummary: allDocs.map((doc: any) => ({
         userId: doc.userId,
         hasData: !!doc.data,
         playersCount: doc.data?.allPlayers?.length || 0,
