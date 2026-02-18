@@ -234,6 +234,83 @@ app.get('/api/app-data', async (req, res) => {
   }
 });
 
+// Diagnostic endpoint - Get detailed info about stored data
+app.get('/api/app-data/diagnostic', async (req, res) => {
+  try {
+    if (!db) {
+      addCorsHeaders(req, res);
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const userId = req.query.userId as string || 'default';
+    const collection = db.collection(COLLECTION_NAME);
+    
+    // Get all documents for this user (in case there are multiple)
+    const docs = await collection.find({ userId }).toArray();
+    
+    // Get all documents regardless of userId (for debugging)
+    const allDocs = await collection.find({}).toArray();
+    
+    const diagnostic = {
+      requestedUserId: userId,
+      documentsForUser: docs.length,
+      totalDocuments: allDocs.length,
+      userDocuments: docs.map(doc => ({
+        userId: doc.userId,
+        hasData: !!doc.data,
+        dataStructure: doc.data ? {
+          hasAllPlayers: !!doc.data.allPlayers,
+          hasSets: !!doc.data.sets,
+          allPlayersCount: Array.isArray(doc.data.allPlayers) ? doc.data.allPlayers.length : 'not array',
+          setsCount: Array.isArray(doc.data.sets) ? doc.data.sets.length : 'not array',
+          setsDetails: Array.isArray(doc.data.sets) ? doc.data.sets.map((set: any) => ({
+            id: set.id,
+            name: set.name,
+            playerIdsCount: Array.isArray(set.playerIds) ? set.playerIds.length : 'not array',
+            gameEntriesCount: Array.isArray(set.gameEntries) ? set.gameEntries.length : 'not array',
+            gameEntriesSample: Array.isArray(set.gameEntries) && set.gameEntries.length > 0 
+              ? set.gameEntries.slice(0, 2).map((ge: any) => ({
+                  id: ge.id,
+                  date: ge.date,
+                  playerScoresCount: Array.isArray(ge.playerScores) ? ge.playerScores.length : 'not array',
+                }))
+              : [],
+          })) : 'not array',
+          playersSample: Array.isArray(doc.data.allPlayers) && doc.data.allPlayers.length > 0
+            ? doc.data.allPlayers.slice(0, 2).map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                points: p.points,
+                fatts: p.fatts,
+                hasPhoto: !!p.photo,
+              }))
+            : [],
+        } : null,
+        updatedAt: doc.updatedAt,
+        createdAt: doc.createdAt || doc._id?.getTimestamp?.() || 'unknown',
+      })),
+      allDocumentsSummary: allDocs.map(doc => ({
+        userId: doc.userId,
+        hasData: !!doc.data,
+        playersCount: doc.data?.allPlayers?.length || 0,
+        setsCount: doc.data?.sets?.length || 0,
+        totalGames: doc.data?.sets?.reduce((sum: number, set: any) => 
+          sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
+      })),
+    };
+    
+    addCorsHeaders(req, res);
+    res.json(diagnostic);
+  } catch (error) {
+    console.error('❌ Error in diagnostic endpoint:', error);
+    addCorsHeaders(req, res);
+    res.status(500).json({ 
+      error: 'Failed to get diagnostic info',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 // Upload/Import app data (POST endpoint for data migration)
 app.post('/api/app-data/upload', async (req, res) => {
   try {
