@@ -175,7 +175,42 @@ app.get('/api/app-data', async (req, res) => {
         const doc = await collection.findOne({ userId });
         if (doc) {
             console.log(`✅ Loaded app data for user: ${userId}`);
-            res.json(doc.data);
+            // Handle both structures: data nested or at root level (after restore)
+            let appData;
+            if (doc.data && (doc.data.allPlayers || doc.data.sets)) {
+                // Standard structure: data nested inside doc.data
+                appData = doc.data;
+                console.log(`📊 Using nested data structure`);
+            }
+            else if (doc.allPlayers || doc.sets) {
+                // Restored structure: data at root level
+                console.log(`⚠️ Detected root-level structure (from restore), converting...`);
+                appData = {
+                    allPlayers: Array.isArray(doc.allPlayers) ? doc.allPlayers : [],
+                    sets: Array.isArray(doc.sets) ? doc.sets : [],
+                };
+            }
+            else {
+                // Fallback: return empty structure
+                console.log(`⚠️ No data found in expected locations, returning empty structure`);
+                appData = { allPlayers: [], sets: [] };
+            }
+            console.log(`📊 Document structure:`, {
+                hasData: !!appData,
+                playersCount: appData.allPlayers?.length || 0,
+                setsCount: appData.sets?.length || 0,
+                totalGames: appData.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
+                setsDetails: appData.sets?.map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    playerCount: Array.isArray(s.playerIds) ? s.playerIds.length : 0,
+                    hasGameEntries: 'gameEntries' in s,
+                    gameEntriesType: typeof s.gameEntries,
+                    gameEntriesIsArray: Array.isArray(s.gameEntries),
+                    gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+                })) || [],
+            });
+            res.json(appData);
         }
         else {
             // Return default structure
@@ -190,6 +225,77 @@ app.get('/api/app-data', async (req, res) => {
     catch (error) {
         console.error('❌ Error loading app data:', error);
         res.status(500).json({ error: 'Failed to load app data' });
+    }
+});
+// Diagnostic endpoint - Get detailed info about stored data
+app.get('/api/app-data/diagnostic', async (req, res) => {
+    try {
+        if (!db) {
+            addCorsHeaders(req, res);
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        const userId = req.query.userId || 'default';
+        const collection = db.collection(COLLECTION_NAME);
+        // Get all documents for this user (in case there are multiple)
+        const docs = await collection.find({ userId }).toArray();
+        // Get all documents regardless of userId (for debugging)
+        const allDocs = await collection.find({}).toArray();
+        const diagnostic = {
+            requestedUserId: userId,
+            documentsForUser: docs.length,
+            totalDocuments: allDocs.length,
+            userDocuments: docs.map((doc) => ({
+                userId: doc.userId,
+                hasData: !!doc.data,
+                dataStructure: doc.data ? {
+                    hasAllPlayers: !!doc.data.allPlayers,
+                    hasSets: !!doc.data.sets,
+                    allPlayersCount: Array.isArray(doc.data.allPlayers) ? doc.data.allPlayers.length : 'not array',
+                    setsCount: Array.isArray(doc.data.sets) ? doc.data.sets.length : 'not array',
+                    setsDetails: Array.isArray(doc.data.sets) ? doc.data.sets.map((set) => ({
+                        id: set.id,
+                        name: set.name,
+                        playerIdsCount: Array.isArray(set.playerIds) ? set.playerIds.length : 'not array',
+                        gameEntriesCount: Array.isArray(set.gameEntries) ? set.gameEntries.length : 'not array',
+                        gameEntriesSample: Array.isArray(set.gameEntries) && set.gameEntries.length > 0
+                            ? set.gameEntries.slice(0, 2).map((ge) => ({
+                                id: ge.id,
+                                date: ge.date,
+                                playerScoresCount: Array.isArray(ge.playerScores) ? ge.playerScores.length : 'not array',
+                            }))
+                            : [],
+                    })) : 'not array',
+                    playersSample: Array.isArray(doc.data.allPlayers) && doc.data.allPlayers.length > 0
+                        ? doc.data.allPlayers.slice(0, 2).map((p) => ({
+                            id: p.id,
+                            name: p.name,
+                            points: p.points,
+                            fatts: p.fatts,
+                            hasPhoto: !!p.photo,
+                        }))
+                        : [],
+                } : null,
+                updatedAt: doc.updatedAt,
+                createdAt: doc.createdAt || doc._id?.getTimestamp?.() || 'unknown',
+            })),
+            allDocumentsSummary: allDocs.map((doc) => ({
+                userId: doc.userId,
+                hasData: !!doc.data,
+                playersCount: doc.data?.allPlayers?.length || 0,
+                setsCount: doc.data?.sets?.length || 0,
+                totalGames: doc.data?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
+            })),
+        };
+        addCorsHeaders(req, res);
+        res.json(diagnostic);
+    }
+    catch (error) {
+        console.error('❌ Error in diagnostic endpoint:', error);
+        addCorsHeaders(req, res);
+        res.status(500).json({
+            error: 'Failed to get diagnostic info',
+            message: error instanceof Error ? error.message : String(error),
+        });
     }
 });
 // Upload/Import app data (POST endpoint for data migration)
