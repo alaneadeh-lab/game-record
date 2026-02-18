@@ -50,7 +50,19 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           </button>
         )}
 
-        {/* Action Buttons - Fixed position */}
+        {/* Admin Button - Top Right */}
+        {onAdminClick && (
+          <button
+            onClick={onAdminClick}
+            className="fixed top-4 right-4 w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d z-50"
+            aria-label="Open admin"
+            title="Admin Tools"
+          >
+            <Settings className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Action Buttons - Fixed position (Bottom Right) */}
         {(onAddGameClick || onAdminClick) && (
           <div className="fixed bottom-4 right-4 z-50 flex gap-3">
             {onAddGameClick && (
@@ -68,6 +80,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
                 onClick={onAdminClick}
                 className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
                 aria-label="Open admin"
+                title="Admin Tools"
               >
                 <Settings className="w-7 h-7" />
               </button>
@@ -134,6 +147,18 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
         </div>
       )}
 
+      {/* Admin Button - Top Right (Default Theme) */}
+      {onAdminClick && (
+        <button
+          onClick={onAdminClick}
+          className="fixed top-4 right-4 w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d z-50"
+          aria-label="Open admin"
+          title="Admin Tools"
+        >
+          <Settings className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Action Buttons - Under Game History Table */}
       {(onAddGameClick || onAdminClick) && (
         <div className="flex gap-3 justify-end pr-4 pb-4 pt-4 mt-4">
@@ -152,6 +177,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
               onClick={onAdminClick}
               className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d"
               aria-label="Open admin"
+              title="Admin Tools"
             >
               <Settings className="w-7 h-7" />
             </button>
