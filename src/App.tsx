@@ -173,10 +173,13 @@ function App() {
                 hasGames: 'games' in s,
                 hasEntries: 'entries' in s,
                 hasRecords: 'records' in s,
+                hasRounds: 'rounds' in s,
                 hasHistory: 'history' in s,
+                hasHands: 'hands' in s,
+                hasEvents: 'events' in s,
               })),
             });
-            console.log('💡 Tip: Check the diagnostic endpoint: fetch("/api/app-data/diagnostic").then(r => r.json()).then(console.log)');
+            console.log('💡 Tip: Run fetch("/api/app-data/diagnostic").then(r=>r.json()).then(console.log) to see full diagnostic info');
           }
           
           setAllPlayers(appData.allPlayers);

@@ -231,8 +231,43 @@ app.get('/api/app-data', async (req, res) => {
                     gameEntriesCount = totalInRootSets;
                 }
             }
-            // Check for other possible keys
-            const possibleGameEntryKeys = ['gameEntries', 'games', 'entries', 'records', 'history'];
+            // Check for other possible keys (comprehensive search)
+            const possibleGameEntryKeys = ['gameEntries', 'games', 'entries', 'records', 'rounds', 'history', 'hands', 'events'];
+            // Check in doc.data.sets[].{key} for each candidate key
+            if (!gameEntriesFound && doc.data?.sets && Array.isArray(doc.data.sets)) {
+                for (const key of possibleGameEntryKeys) {
+                    const totalInDataSets = doc.data.sets.reduce((sum, set) => {
+                        if (set && key in set && Array.isArray(set[key])) {
+                            return sum + set[key].length;
+                        }
+                        return sum;
+                    }, 0);
+                    if (totalInDataSets > 0) {
+                        gameEntriesFound = true;
+                        gameEntriesLocation = `doc.data.sets[].${key}`;
+                        gameEntriesCount = totalInDataSets;
+                        break;
+                    }
+                }
+            }
+            // Check in doc.sets[].{key} for each candidate key (root level)
+            if (!gameEntriesFound && doc.sets && Array.isArray(doc.sets)) {
+                for (const key of possibleGameEntryKeys) {
+                    const totalInRootSets = doc.sets.reduce((sum, set) => {
+                        if (set && key in set && Array.isArray(set[key])) {
+                            return sum + set[key].length;
+                        }
+                        return sum;
+                    }, 0);
+                    if (totalInRootSets > 0) {
+                        gameEntriesFound = true;
+                        gameEntriesLocation = `doc.sets[].${key}`;
+                        gameEntriesCount = totalInRootSets;
+                        break;
+                    }
+                }
+            }
+            // Check at top level in doc.data.{key}
             for (const key of possibleGameEntryKeys) {
                 if (doc.data && key in doc.data && Array.isArray(doc.data[key]) && doc.data[key].length > 0) {
                     gameEntriesFound = true;
@@ -333,7 +368,7 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
         let gameEntriesFound = false;
         let gameEntriesLocation = 'none';
         let gameEntriesCount = 0;
-        const searchedKeys = ['gameEntries', 'games', 'entries', 'records', 'history'];
+        const searchedKeys = ['gameEntries', 'games', 'entries', 'records', 'rounds', 'history', 'hands', 'events'];
         if (foundDoc) {
             // Check in doc.data.sets[].gameEntries
             if (foundDoc.data?.sets && Array.isArray(foundDoc.data.sets)) {
@@ -363,7 +398,41 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
                     gameEntriesCount = totalInRootSets;
                 }
             }
-            // Check for other possible keys
+            // Check in foundDoc.data.sets[].{key} for each candidate key
+            if (!gameEntriesFound && foundDoc.data?.sets && Array.isArray(foundDoc.data.sets)) {
+                for (const key of searchedKeys) {
+                    const totalInDataSets = foundDoc.data.sets.reduce((sum, set) => {
+                        if (set && key in set && Array.isArray(set[key])) {
+                            return sum + set[key].length;
+                        }
+                        return sum;
+                    }, 0);
+                    if (totalInDataSets > 0) {
+                        gameEntriesFound = true;
+                        gameEntriesLocation = `doc.data.sets[].${key}`;
+                        gameEntriesCount = totalInDataSets;
+                        break;
+                    }
+                }
+            }
+            // Check in foundDoc.sets[].{key} for each candidate key (root level)
+            if (!gameEntriesFound && foundDoc.sets && Array.isArray(foundDoc.sets)) {
+                for (const key of searchedKeys) {
+                    const totalInRootSets = foundDoc.sets.reduce((sum, set) => {
+                        if (set && key in set && Array.isArray(set[key])) {
+                            return sum + set[key].length;
+                        }
+                        return sum;
+                    }, 0);
+                    if (totalInRootSets > 0) {
+                        gameEntriesFound = true;
+                        gameEntriesLocation = `doc.sets[].${key}`;
+                        gameEntriesCount = totalInRootSets;
+                        break;
+                    }
+                }
+            }
+            // Check at top level in foundDoc.data.{key}
             for (const key of searchedKeys) {
                 if (foundDoc.data && key in foundDoc.data && Array.isArray(foundDoc.data[key]) && foundDoc.data[key].length > 0) {
                     gameEntriesFound = true;
