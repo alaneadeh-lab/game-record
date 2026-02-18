@@ -237,22 +237,51 @@ function App() {
     
     const timeoutId = setTimeout(async () => {
       try {
+        // Normalize: Ensure playerSets -> sets mapping is correct
         const appData: AppData = {
           allPlayers,
-          sets: playerSets,
+          sets: playerSets, // playerSets IS sets (same structure)
         };
         
+        // SAFETY CHECK: Ensure gameEntries are included in payload
+        const totalGameEntriesInMemory = playerSets.reduce((sum, set) => 
+          sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        const totalGameEntriesInPayload = appData.sets.reduce((sum, set) => 
+          sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        
+        // CRITICAL: If we have gameEntries in memory but payload is missing them, STOP
+        if (totalGameEntriesInMemory > 0 && totalGameEntriesInPayload === 0) {
+          console.error('🚫 [BLOCKED] Save prevented: gameEntries exist in memory but missing from payload!', {
+            totalGameEntriesInMemory,
+            totalGameEntriesInPayload,
+            playerSetsGameEntries: playerSets.map(s => ({
+              setId: s.id,
+              setName: s.name,
+              count: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+            })),
+            payloadSetsGameEntries: appData.sets.map(s => ({
+              setId: s.id,
+              setName: s.name,
+              count: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+            })),
+          });
+          setSaveStatus('error');
+          setTimeout(() => {
+            alert('⚠️ Save blocked: Game entries exist but were not included in save payload. This is a bug - please report it.');
+          }, 100);
+          return;
+        }
+        
         // DIAGNOSTIC: Log what we're about to save
-        const totalGameEntries = playerSets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
         const allPlayersWithZeros = allPlayers.filter(p => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
-        const isBlankTemplate = allPlayers.length > 0 && allPlayersWithZeros === allPlayers.length && totalGameEntries === 0;
+        const isBlankTemplate = allPlayers.length > 0 && allPlayersWithZeros === allPlayers.length && totalGameEntriesInPayload === 0;
         
         console.log('💾 [DIAGNOSTIC] Client-side save triggered:', {
           persistenceMethod: 'MongoDB (via storageService.saveAppData)',
           appDataKeys: Object.keys(appData),
           allPlayersCount: appData.allPlayers.length,
           setsCount: appData.sets.length,
-          totalGameEntries: totalGameEntries,
+          totalGameEntries: totalGameEntriesInPayload,
           gameEntriesPerSet: appData.sets.map(s => ({
             setId: s.id,
             setName: s.name,
@@ -266,9 +295,16 @@ function App() {
         await storageService.saveAppData(appData);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Failed to save data:', error);
         setSaveStatus('error');
+        
+        // Handle blocked save response from server
+        if (error.message && error.message.includes('blocked_blank_overwrite')) {
+          setTimeout(() => {
+            alert('⚠️ Save blocked: Server prevented overwriting existing game history with blank template.');
+          }, 100);
+        }
         
         // Show user-friendly error message for quota exceeded
         if (error instanceof DOMException && error.name === 'QuotaExceededError') {

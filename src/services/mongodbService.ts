@@ -147,6 +147,13 @@ class MongoDBService implements IStorageService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        
+        // Handle blocked save (409 Conflict)
+        if (response.status === 409 && errorData.reason === 'blocked_blank_overwrite') {
+          console.error('🚫 [BLOCKED] Server prevented blank template overwrite:', errorData);
+          throw new Error(`Save blocked: ${errorData.message || 'Cannot overwrite existing game history with blank template'}`);
+        }
+        
         throw new Error(`Failed to save app data: ${errorData.error || response.statusText}`);
       }
 

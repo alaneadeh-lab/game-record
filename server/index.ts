@@ -593,6 +593,25 @@ app.get('/api/app-data/diagnostic', async (req, res) => {
         searchedKeys: searchedKeys,
       },
       
+      // Blank overwrite protection
+      willBlockBlankOverwrite: foundDoc ? (() => {
+        const existingTotal = (foundDoc.data?.sets || foundDoc.sets || []).reduce((sum: number, set: any) => 
+          sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        return existingTotal > 0; // Would block if existing has entries and incoming is blank
+      })() : false,
+      
+      mergedOutcomePreview: foundDoc ? (() => {
+        // Simulate merge outcome (preserves existing gameEntries)
+        const existingSets = foundDoc.data?.sets || foundDoc.sets || [];
+        const existingTotal = existingSets.reduce((sum: number, set: any) => 
+          sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        return {
+          playersCount: foundDoc.data?.allPlayers?.length || foundDoc.allPlayers?.length || 0,
+          setsCount: existingSets.length,
+          totalGameEntries: existingTotal, // Would preserve existing entries in merge
+        };
+      })() : null,
+      
       // Detailed document analysis for requested user
       userDocuments: docs.map((doc: any) => ({
         userId: doc.userId,
@@ -711,75 +730,147 @@ app.put('/api/app-data', async (req, res) => {
     }
 
     const userId = (req.body.userId as string) || 'default';
-    const data: AppData = req.body.data;
+    const incomingData: AppData = req.body.data;
 
-    if (!data || !data.allPlayers || !data.sets) {
+    if (!incomingData || !incomingData.allPlayers || !incomingData.sets) {
       addCorsHeaders(req, res);
       return res.status(400).json({ error: 'Invalid data format' });
     }
 
     const collection = db.collection(COLLECTION_NAME);
     
-    // DIAGNOSTIC: Check if this is a blank template before saving
-    const totalGameEntries = data.sets.reduce((sum: number, set: any) => 
-      sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
-    const allPlayersWithZeros = data.allPlayers.filter((p: any) => 
-      p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
-    const isBlankTemplate = data.allPlayers.length > 0 && allPlayersWithZeros === data.allPlayers.length && totalGameEntries === 0;
-    
-    // DIAGNOSTIC: Get existing document to check if we're overwriting
+    // SAFE PERSISTENCE: Read existing document first
     const existingDoc = await collection.findOne({ userId });
-    const existingGameEntries = existingDoc?.data?.sets?.reduce((sum: number, set: any) => 
-      sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 
-      existingDoc?.sets?.reduce((sum: number, set: any) => 
-        sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+    const existingData = existingDoc?.data || (existingDoc?.allPlayers || existingDoc?.sets ? {
+      allPlayers: existingDoc.allPlayers || [],
+      sets: existingDoc.sets || [],
+    } : null);
+    
+    // Calculate incoming game entries
+    const incomingTotalGameEntries = incomingData.sets.reduce((sum: number, set: any) => 
+      sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+    
+    // Calculate existing game entries
+    const existingTotalGameEntries = existingData?.sets?.reduce((sum: number, set: any) => 
+      sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+    
+    // Check if incoming is blank template
+    const allPlayersWithZeros = incomingData.allPlayers.filter((p: any) => 
+      p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
+    const isBlankTemplate = incomingData.allPlayers.length > 0 && 
+      allPlayersWithZeros === incomingData.allPlayers.length && 
+      incomingTotalGameEntries === 0;
+    
+    // GUARDRAIL: Block blank template overwrite if existing has game entries
+    if (isBlankTemplate && existingTotalGameEntries > 0) {
+      console.error('🚫 [BLOCKED] Blank template overwrite prevented!', {
+        userId,
+        existingTotalGameEntries,
+        incomingTotalGameEntries,
+        reason: 'Incoming data is blank template (all zeros, no entries) but existing document has game history',
+      });
+      
+      addCorsHeaders(req, res);
+      return res.status(409).json({
+        ok: false,
+        reason: 'blocked_blank_overwrite',
+        existingTotalGameEntries,
+        incomingTotalGameEntries,
+        message: 'Save blocked: Cannot overwrite existing game history with blank template',
+      });
+    }
+    
+    // SAFE MERGE: Preserve existing gameEntries when incoming is missing/empty
+    let mergedData: AppData;
+    
+    if (existingData) {
+      // Merge: Start with existing, overlay incoming, but preserve gameEntries
+      mergedData = {
+        allPlayers: incomingData.allPlayers, // Always use incoming players (they may have updated names/photos)
+        sets: incomingData.sets.map((incomingSet: any) => {
+          // Find matching existing set by ID
+          const existingSet = existingData.sets?.find((s: any) => s.id === incomingSet.id);
+          
+          if (existingSet && Array.isArray(existingSet.gameEntries) && existingSet.gameEntries.length > 0) {
+            // Preserve existing gameEntries if incoming is missing or empty
+            const incomingGameEntries = Array.isArray(incomingSet.gameEntries) ? incomingSet.gameEntries : [];
+            
+            if (incomingGameEntries.length === 0) {
+              console.log(`🛡️ [MERGE] Preserving ${existingSet.gameEntries.length} gameEntries for set "${incomingSet.name}" (incoming was empty)`);
+              return {
+                ...incomingSet,
+                gameEntries: existingSet.gameEntries, // Preserve existing
+              };
+            } else {
+              // Incoming has entries - use them (they may be updates)
+              return incomingSet;
+            }
+          } else {
+            // No existing set or no existing entries - use incoming as-is
+            return incomingSet;
+          }
+        }),
+      };
+      
+      console.log('🔄 [MERGE] Merged data:', {
+        existingSets: existingData.sets?.length || 0,
+        incomingSets: incomingData.sets.length,
+        mergedSets: mergedData.sets.length,
+        existingGameEntries: existingTotalGameEntries,
+        incomingGameEntries: incomingTotalGameEntries,
+        mergedGameEntries: mergedData.sets.reduce((sum: number, set: any) => 
+          sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0),
+      });
+    } else {
+      // No existing document - use incoming as-is
+      mergedData = incomingData;
+      console.log('📝 [NEW] Creating new document with incoming data');
+    }
     
     // DIAGNOSTIC: Log comprehensive save info
+    const mergedTotalGameEntries = mergedData.sets.reduce((sum: number, set: any) => 
+      sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+    
     console.log('💾 [DIAGNOSTIC] MongoDB save (server-side):', {
       dbName: DB_NAME,
       collectionName: COLLECTION_NAME,
       userId: userId,
       queryFilter: { userId },
-      operation: 'updateOne (with $set)',
+      operation: 'updateOne (with $set) - MERGE mode',
       isUpsert: true,
-      payloadKeys: Object.keys(req.body),
-      dataKeys: Object.keys(data),
-      allPlayersCount: data.allPlayers.length,
-      setsCount: data.sets.length,
-      totalGameEntries: totalGameEntries,
-      gameEntriesPerSet: data.sets.map((s: any) => ({
+      existingDocFound: !!existingDoc,
+      existingTotalGameEntries: existingTotalGameEntries,
+      incomingTotalGameEntries: incomingTotalGameEntries,
+      mergedTotalGameEntries: mergedTotalGameEntries,
+      allPlayersCount: mergedData.allPlayers.length,
+      setsCount: mergedData.sets.length,
+      gameEntriesPerSet: mergedData.sets.map((s: any) => ({
         setId: s.id,
         setName: s.name,
         gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
       })),
-      allPlayersWithZeros: allPlayersWithZeros,
       isBlankTemplate: isBlankTemplate,
-      existingDocFound: !!existingDoc,
-      existingGameEntries: existingGameEntries,
-      willOverwrite: existingDoc && existingGameEntries > 0 && totalGameEntries === 0,
-      warning: isBlankTemplate ? '⚠️ WARNING: Saving blank template (all zeros, no entries)!' : null,
-      overwriteWarning: existingDoc && existingGameEntries > 0 && totalGameEntries === 0 
-        ? `⚠️ CRITICAL: Overwriting document with ${existingGameEntries} game entries with blank template!` 
-        : null,
+      wasBlocked: false,
     });
     
-    // Upsert (update or insert)
-    // NOTE: This uses $set which REPLACES the entire 'data' field
-    // If data.gameEntries is empty, this WILL overwrite existing game entries!
+    // Write merged data
     await collection.updateOne(
       { userId },
       { 
         $set: { 
           userId,
-          data,
+          data: mergedData,
           updatedAt: new Date(),
-        } 
+        },
+        $setOnInsert: {
+          createdAt: new Date(),
+        }
       },
       { upsert: true }
     );
 
-    const sizeInMB = (JSON.stringify(data).length / (1024 * 1024)).toFixed(2);
-    console.log(`✅ Saved app data for user: ${userId} (${sizeInMB}MB)`);
+    const sizeInMB = (JSON.stringify(mergedData).length / (1024 * 1024)).toFixed(2);
+    console.log(`✅ Saved app data for user: ${userId} (${sizeInMB}MB) - ${mergedTotalGameEntries} game entries preserved`);
     
     res.json({ success: true, message: 'Data saved successfully' });
   } catch (error) {

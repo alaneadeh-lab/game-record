@@ -179,6 +179,23 @@ class LocalStorageService implements IStorageService {
 import MongoDBService from './mongodbService';
 
 const useMongoDB = import.meta.env.VITE_API_URL !== undefined;
+
+// ENVIRONMENT CHECK: Warn if MongoDB is expected but not configured
+if (typeof window !== 'undefined') {
+  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  if (isProduction && !useMongoDB) {
+    console.warn('⚠️ [ENVIRONMENT] VITE_API_URL is missing in production! Cloud save is disabled. Using local device storage only.');
+    // Show visible warning banner
+    setTimeout(() => {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #f59e0b; color: white; padding: 12px; text-align: center; z-index: 9999; font-weight: bold;';
+      banner.textContent = '⚠️ Cloud save disabled (missing API URL). Using local device only.';
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 10000);
+    }, 1000);
+  }
+}
+
 export const storageService: IStorageService = useMongoDB 
   ? new MongoDBService()
   : new LocalStorageService();
