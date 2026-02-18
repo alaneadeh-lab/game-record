@@ -205,20 +205,44 @@ app.get('/api/app-data', async (req, res) => {
     
     if (doc) {
       console.log(`✅ Loaded app data for user: ${userId}`);
+      
+      // Handle both structures: data nested or at root level (after restore)
+      let appData: AppData;
+      
+      if (doc.data && (doc.data.allPlayers || doc.data.sets)) {
+        // Standard structure: data nested inside doc.data
+        appData = doc.data;
+        console.log(`📊 Using nested data structure`);
+      } else if (doc.allPlayers || doc.sets) {
+        // Restored structure: data at root level
+        console.log(`⚠️ Detected root-level structure (from restore), converting...`);
+        appData = {
+          allPlayers: Array.isArray(doc.allPlayers) ? doc.allPlayers : [],
+          sets: Array.isArray(doc.sets) ? doc.sets : [],
+        };
+      } else {
+        // Fallback: return empty structure
+        console.log(`⚠️ No data found in expected locations, returning empty structure`);
+        appData = { allPlayers: [], sets: [] };
+      }
+      
       console.log(`📊 Document structure:`, {
-        hasData: !!doc.data,
-        dataKeys: doc.data ? Object.keys(doc.data) : [],
-        playersCount: doc.data?.allPlayers?.length || 0,
-        setsCount: doc.data?.sets?.length || 0,
-        totalGames: doc.data?.sets?.reduce((sum: number, set: any) => sum + (set.gameEntries?.length || 0), 0) || 0,
-        sampleSet: doc.data?.sets?.[0] ? {
-          id: doc.data.sets[0].id,
-          name: doc.data.sets[0].name,
-          playerCount: doc.data.sets[0].playerIds?.length || 0,
-          gameCount: doc.data.sets[0].gameEntries?.length || 0,
-        } : null,
+        hasData: !!appData,
+        playersCount: appData.allPlayers?.length || 0,
+        setsCount: appData.sets?.length || 0,
+        totalGames: appData.sets?.reduce((sum: number, set: any) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
+        setsDetails: appData.sets?.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          playerCount: Array.isArray(s.playerIds) ? s.playerIds.length : 0,
+          hasGameEntries: 'gameEntries' in s,
+          gameEntriesType: typeof s.gameEntries,
+          gameEntriesIsArray: Array.isArray(s.gameEntries),
+          gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+        })) || [],
       });
-      res.json(doc.data);
+      
+      res.json(appData);
     } else {
       // Return default structure
       const defaultData: AppData = {
