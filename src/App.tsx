@@ -126,10 +126,33 @@ function App() {
           });
         } else {
           // Data exists, use it
+          const totalGames = appData.sets?.reduce((sum: number, set: any) => 
+            sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+          
           console.log('✅ Using loaded data:', {
             players: appData.allPlayers.length,
             sets: appData.sets?.length || 0,
+            totalGameEntries: totalGames,
+            setsWithGames: appData.sets?.map((s: any) => ({
+              name: s.name,
+              gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+            })) || [],
           });
+          
+          // Warn if no game entries found
+          if (totalGames === 0 && appData.sets && appData.sets.length > 0) {
+            console.warn('⚠️ WARNING: Data loaded but NO GAME ENTRIES found!', {
+              setsCount: appData.sets.length,
+              allSets: appData.sets.map((s: any) => ({
+                name: s.name,
+                id: s.id,
+                gameEntriesType: typeof s.gameEntries,
+                gameEntriesIsArray: Array.isArray(s.gameEntries),
+                gameEntriesLength: Array.isArray(s.gameEntries) ? s.gameEntries.length : 'N/A',
+              })),
+            });
+            console.log('💡 Tip: Check the diagnostic endpoint: fetch("/api/app-data/diagnostic").then(r => r.json()).then(console.log)');
+          }
           
           setAllPlayers(appData.allPlayers);
           

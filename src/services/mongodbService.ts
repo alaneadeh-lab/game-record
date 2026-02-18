@@ -58,11 +58,32 @@ class MongoDBService implements IStorageService {
       const allPlayers = Array.isArray(data.allPlayers) ? data.allPlayers : [];
       const sets = Array.isArray(data.sets) ? data.sets : [];
       
+      // Log detailed information about sets and game entries
+      const setsDetails = sets.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        playerIdsCount: Array.isArray(s.playerIds) ? s.playerIds.length : 0,
+        gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+        gameEntriesSample: Array.isArray(s.gameEntries) && s.gameEntries.length > 0
+          ? s.gameEntries.slice(0, 2).map((ge: any) => ({
+              id: ge.id,
+              date: ge.date,
+              playerScoresCount: Array.isArray(ge.playerScores) ? ge.playerScores.length : 0,
+              playerScores: Array.isArray(ge.playerScores) ? ge.playerScores.map((ps: any) => ({
+                playerId: ps.playerId,
+                score: ps.score,
+                fatt: ps.fatt,
+              })) : [],
+            }))
+          : [],
+      }));
+      
       console.log('📊 Processed data:', {
         playersCount: allPlayers.length,
         setsCount: sets.length,
-        playersSample: allPlayers.slice(0, 2).map(p => ({ id: p.id, name: p.name })),
-        setsSample: sets.slice(0, 2).map(s => ({ id: s.id, name: s.name, games: s.gameEntries?.length || 0 })),
+        playersSample: allPlayers.slice(0, 2).map(p => ({ id: p.id, name: p.name, points: p.points, fatts: p.fatts })),
+        setsDetails: setsDetails,
+        totalGameEntries: sets.reduce((sum: number, s: any) => sum + (Array.isArray(s.gameEntries) ? s.gameEntries.length : 0), 0),
       });
       
       // Ensure all players have tomatoes field (backward compatibility)
