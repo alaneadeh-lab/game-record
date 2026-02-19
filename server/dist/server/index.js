@@ -343,6 +343,100 @@ app.get('/api/app-data', async (req, res) => {
         res.status(500).json({ error: 'Failed to load app data' });
     }
 });
+// Forensic endpoint - Get forensic information about data loss events
+app.get('/api/app-data/forensics', async (req, res) => {
+    try {
+        if (!db) {
+            addCorsHeaders(req, res);
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        const userId = req.query.userId || 'default';
+        const collection = db.collection(COLLECTION_NAME);
+        const doc = await collection.findOne({ userId });
+        const existingData = doc?.data || (doc?.allPlayers || doc?.sets ? {
+            allPlayers: doc.allPlayers || [],
+            sets: doc.sets || [],
+        } : null);
+        const currentTotalGameEntries = existingData?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+        // Get write audit log from memory
+        const globalAny = global;
+        const writeAuditLog = globalAny.writeAuditLog || [];
+        const lastBlankOverwrite = writeAuditLog
+            .filter((entry) => entry.isBlankTemplate && entry.userId === userId)
+            .slice(-1)[0];
+        const dataLossEvents = writeAuditLog
+            .filter((entry) => entry.dataLossDetected && entry.userId === userId)
+            .slice(-20); // Last 20 data loss events
+        const forensics = {
+            currentDocument: {
+                updatedAt: doc?.updatedAt || doc?._id?.getTimestamp?.() || null,
+                totalGameEntries: currentTotalGameEntries,
+                playersCount: existingData?.allPlayers?.length || 0,
+                setsCount: existingData?.sets?.length || 0,
+            },
+            lastBlankTemplateOverwrite: lastBlankOverwrite || null,
+            dataLossEvents: dataLossEvents,
+            writeAuditLog: writeAuditLog.filter((entry) => entry.userId === userId).slice(-20),
+        };
+        addCorsHeaders(req, res);
+        res.json(forensics);
+    }
+    catch (error) {
+        console.error('❌ Error in forensic endpoint:', error);
+        addCorsHeaders(req, res);
+        res.status(500).json({
+            error: 'Failed to get forensic info',
+            message: error instanceof Error ? error.message : String(error),
+        });
+    }
+});
+// Forensic endpoint - Get forensic information about data loss events
+app.get('/api/app-data/forensics', async (req, res) => {
+    try {
+        if (!db) {
+            addCorsHeaders(req, res);
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        const userId = req.query.userId || 'default';
+        const collection = db.collection(COLLECTION_NAME);
+        const doc = await collection.findOne({ userId });
+        const existingData = doc?.data || (doc?.allPlayers || doc?.sets ? {
+            allPlayers: doc.allPlayers || [],
+            sets: doc.sets || [],
+        } : null);
+        const currentTotalGameEntries = existingData?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+        // Get write audit log from memory
+        const globalAny = global;
+        const writeAuditLog = globalAny.writeAuditLog || [];
+        const lastBlankOverwrite = writeAuditLog
+            .filter((entry) => entry.isBlankTemplate && entry.userId === userId)
+            .slice(-1)[0];
+        const dataLossEvents = writeAuditLog
+            .filter((entry) => entry.dataLossDetected && entry.userId === userId)
+            .slice(-20); // Last 20 data loss events
+        const forensics = {
+            currentDocument: {
+                updatedAt: doc?.updatedAt || doc?._id?.getTimestamp?.() || null,
+                totalGameEntries: currentTotalGameEntries,
+                playersCount: existingData?.allPlayers?.length || 0,
+                setsCount: existingData?.sets?.length || 0,
+            },
+            lastBlankTemplateOverwrite: lastBlankOverwrite || null,
+            dataLossEvents: dataLossEvents,
+            writeAuditLog: writeAuditLog.filter((entry) => entry.userId === userId).slice(-20),
+        };
+        addCorsHeaders(req, res);
+        res.json(forensics);
+    }
+    catch (error) {
+        console.error('❌ Error in forensic endpoint:', error);
+        addCorsHeaders(req, res);
+        res.status(500).json({
+            error: 'Failed to get forensic info',
+            message: error instanceof Error ? error.message : String(error),
+        });
+    }
+});
 // Diagnostic endpoint - Get detailed info about stored data
 app.get('/api/app-data/diagnostic', async (req, res) => {
     try {
@@ -665,6 +759,22 @@ app.put('/api/app-data', async (req, res) => {
         const incomingTotalGameEntries = incomingData.sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
         // Calculate existing game entries
         const existingTotalGameEntries = existingData?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+        // FORENSIC LOG: Data loss detection
+        const dataLossDetected = existingTotalGameEntries > 0 && incomingTotalGameEntries < existingTotalGameEntries;
+        const dataLossAmount = dataLossDetected ? existingTotalGameEntries - incomingTotalGameEntries : 0;
+        if (dataLossDetected) {
+            const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+            console.error('🚨 [DATA LOSS EVENT]', {
+                timestamp: new Date().toISOString(),
+                userId: userId,
+                requestOrigin: requestOrigin,
+                existingTotalGameEntries: existingTotalGameEntries,
+                incomingTotalGameEntries: incomingTotalGameEntries,
+                dataLossAmount: dataLossAmount,
+                reductionPercentage: ((dataLossAmount / existingTotalGameEntries) * 100).toFixed(2) + '%',
+                userAgent: req.headers['user-agent'] || 'unknown',
+            });
+        }
         // Check if incoming is blank template
         const allPlayersWithZeros = incomingData.allPlayers.filter((p) => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
         const isBlankTemplate = incomingData.allPlayers.length > 0 &&
@@ -733,6 +843,26 @@ app.put('/api/app-data', async (req, res) => {
         }
         // DIAGNOSTIC: Log comprehensive save info
         const mergedTotalGameEntries = mergedData.sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        // FORENSIC LOG: Log every write with data loss detection
+        const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+        console.log('💾 [FORENSIC] MongoDB write operation:', {
+            timestamp: new Date().toISOString(),
+            dbName: DB_NAME,
+            collectionName: COLLECTION_NAME,
+            userId: userId,
+            queryFilter: { userId },
+            operation: 'updateOne (with $set) - MERGE mode',
+            isUpsert: true,
+            requestOrigin: requestOrigin,
+            existingDocFound: !!existingDoc,
+            existingTotalGameEntries: existingTotalGameEntries,
+            incomingTotalGameEntries: incomingTotalGameEntries,
+            mergedTotalGameEntries: mergedTotalGameEntries,
+            dataLossDetected: dataLossDetected,
+            dataLossAmount: dataLossAmount,
+            isBlankTemplate: isBlankTemplate,
+            wasBlocked: false,
+        });
         console.log('💾 [DIAGNOSTIC] MongoDB save (server-side):', {
             dbName: DB_NAME,
             collectionName: COLLECTION_NAME,
@@ -765,6 +895,29 @@ app.put('/api/app-data', async (req, res) => {
                 createdAt: new Date(),
             }
         }, { upsert: true });
+        // FORENSIC: Store write audit in memory (last 20 writes)
+        // Note: In production, consider storing in app-data-audit collection
+        const globalAny = global;
+        if (!globalAny.writeAuditLog) {
+            globalAny.writeAuditLog = [];
+        }
+        const auditEntry = {
+            userId,
+            timestamp: new Date().toISOString(),
+            requestOrigin: req.headers.origin || req.headers.referer || 'unknown',
+            incomingTotalGameEntries,
+            existingTotalGameEntries,
+            mergedTotalGameEntries,
+            dataLossDetected,
+            dataLossAmount,
+            isBlankTemplate,
+            blocked: false,
+        };
+        globalAny.writeAuditLog.push(auditEntry);
+        // Keep only last 20 entries
+        if (globalAny.writeAuditLog.length > 20) {
+            globalAny.writeAuditLog.shift();
+        }
         const sizeInMB = (JSON.stringify(mergedData).length / (1024 * 1024)).toFixed(2);
         console.log(`✅ Saved app data for user: ${userId} (${sizeInMB}MB) - ${mergedTotalGameEntries} game entries preserved`);
         res.json({ success: true, message: 'Data saved successfully' });

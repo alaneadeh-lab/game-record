@@ -88,6 +88,104 @@ function App() {
     const loadData = async () => {
       try {
         setIsLoading(true);
+        
+        // FORENSIC LOG: One-time forensic log on app load
+        const useMongoDB = import.meta.env.VITE_API_URL !== undefined;
+        const apiUrl = import.meta.env.VITE_API_URL;
+        const userId = import.meta.env.VITE_USER_ID || 'default';
+        
+        console.log('🔍 [FORENSIC] App Load Forensic Log:', {
+          timestamp: new Date().toISOString(),
+          persistenceMode: useMongoDB ? 'MongoDB' : 'localStorage',
+          viteApiUrl: apiUrl || 'NOT DEFINED',
+          viteApiUrlDefined: apiUrl !== undefined,
+          userId: userId,
+        });
+        
+        // Scan localStorage for all keys
+        const localStorageKeys: string[] = [];
+        const legacyKeys: any[] = [];
+        const searchTerms = ['hand', 'game', 'record', 'app-data', 'tracker', 'save'];
+        
+        if (typeof localStorage !== 'undefined') {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key) {
+              localStorageKeys.push(key);
+              
+              // Check if key contains any search terms
+              const keyLower = key.toLowerCase();
+              if (searchTerms.some(term => keyLower.includes(term))) {
+                try {
+                  const value = localStorage.getItem(key);
+                  if (value) {
+                    try {
+                      const parsed = JSON.parse(value);
+                      // Check if it looks like appData
+                      if (parsed && typeof parsed === 'object') {
+                        const hasPlayers = Array.isArray(parsed.allPlayers) || Array.isArray(parsed.players);
+                        const hasSets = Array.isArray(parsed.sets) || Array.isArray(parsed);
+                        if (hasPlayers || hasSets) {
+                          const sets = parsed.sets || parsed;
+                          const players = parsed.allPlayers || parsed.players || [];
+                          const totalGameEntries = Array.isArray(sets) ? sets.reduce((sum: number, set: any) => 
+                            sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) : 0;
+                          
+                          legacyKeys.push({
+                            key: key,
+                            hasPlayers: hasPlayers,
+                            hasSets: hasSets,
+                            playersCount: Array.isArray(players) ? players.length : 0,
+                            setsCount: Array.isArray(sets) ? sets.length : 0,
+                            totalGameEntries: totalGameEntries,
+                            size: value.length,
+                          });
+                        }
+                      }
+                    } catch (e) {
+                      // Not JSON, skip
+                    }
+                  }
+                } catch (e) {
+                  // Error reading, skip
+                }
+              }
+            }
+          }
+        }
+        
+        // Check current localStorage key
+        const currentStorageKey = 'game-record-data';
+        const currentStorageData = typeof localStorage !== 'undefined' ? localStorage.getItem(currentStorageKey) : null;
+        let currentStorageCounts = null;
+        if (currentStorageData) {
+          try {
+            const parsed = JSON.parse(currentStorageData);
+            if (parsed && typeof parsed === 'object') {
+              const sets = parsed.sets || [];
+              const players = parsed.allPlayers || [];
+              const totalGameEntries = Array.isArray(sets) ? sets.reduce((sum: number, set: any) => 
+                sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) : 0;
+              
+              currentStorageCounts = {
+                playersCount: Array.isArray(players) ? players.length : 0,
+                setsCount: Array.isArray(sets) ? sets.length : 0,
+                totalGameEntries: totalGameEntries,
+              };
+            }
+          } catch (e) {
+            // Not valid JSON
+          }
+        }
+        
+        console.log('🔍 [FORENSIC] localStorage Analysis:', {
+          allLocalStorageKeys: localStorageKeys,
+          currentStorageKey: currentStorageKey,
+          currentStorageExists: !!currentStorageData,
+          currentStorageCounts: currentStorageCounts,
+          legacyKeysFound: legacyKeys,
+        });
+        
         console.log('🔄 Loading app data...');
         const appData = await storageService.loadAppData();
         
