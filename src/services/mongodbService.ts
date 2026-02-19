@@ -1,4 +1,4 @@
-import type { AppData } from '../types';
+import type { AppData, PlayerSet } from '../types';
 import type { IStorageService } from './storageService';
 
 /**
@@ -36,27 +36,43 @@ class MongoDBService implements IStorageService {
         throw new Error(`Failed to load app data: ${response.statusText}`);
       }
 
-      const data: AppData = await response.json();
+      const rawData: any = await response.json();
       
       console.log('📦 Raw data received from MongoDB:', {
-        hasData: !!data,
-        dataType: typeof data,
-        keys: data ? Object.keys(data) : [],
-        allPlayersType: data?.allPlayers ? typeof data.allPlayers : 'undefined',
-        setsType: data?.sets ? typeof data.sets : 'undefined',
-        allPlayersLength: Array.isArray(data?.allPlayers) ? data.allPlayers.length : 'not array',
-        setsLength: Array.isArray(data?.sets) ? data.sets.length : 'not array',
+        hasData: !!rawData,
+        dataType: typeof rawData,
+        keys: rawData ? Object.keys(rawData) : [],
+        allPlayersType: rawData?.allPlayers ? typeof rawData.allPlayers : 'undefined',
+        setsType: rawData?.sets ? typeof rawData.sets : 'undefined',
+        playerSetsType: rawData?.playerSets ? typeof rawData.playerSets : 'undefined',
+        allPlayersLength: Array.isArray(rawData?.allPlayers) ? rawData.allPlayers.length : 'not array',
+        setsLength: Array.isArray(rawData?.sets) ? rawData.sets.length : 'not array',
+        playerSetsLength: Array.isArray(rawData?.playerSets) ? rawData.playerSets.length : 'not array',
       });
       
       // Validate data structure
-      if (!data || typeof data !== 'object') {
-        console.error('❌ Invalid data structure:', data);
+      if (!rawData || typeof rawData !== 'object') {
+        console.error('❌ Invalid data structure:', rawData);
         throw new Error('Invalid data structure received from MongoDB');
       }
       
-      // Ensure allPlayers and sets are arrays
-      const allPlayers = Array.isArray(data.allPlayers) ? data.allPlayers : [];
-      const sets = Array.isArray(data.sets) ? data.sets : [];
+      // NORMALIZE: Convert legacy playerSets to sets if present
+      let sets: PlayerSet[] = [];
+      if (Array.isArray(rawData.sets)) {
+        sets = rawData.sets;
+      } else if (Array.isArray(rawData.playerSets)) {
+        console.log('🔄 [NORMALIZE] Converting legacy playerSets to sets');
+        sets = rawData.playerSets;
+      }
+      
+      // Ensure all sets have gameEntries array
+      sets = sets.map(set => ({
+        ...set,
+        gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+      }));
+      
+      // Ensure allPlayers is an array
+      const allPlayers = Array.isArray(rawData.allPlayers) ? rawData.allPlayers : [];
       
       // Log detailed information about sets and game entries
       const setsDetails = sets.map((s: any) => ({
@@ -81,7 +97,7 @@ class MongoDBService implements IStorageService {
       console.log('📊 Processed data:', {
         playersCount: allPlayers.length,
         setsCount: sets.length,
-        playersSample: allPlayers.slice(0, 2).map(p => ({ id: p.id, name: p.name, points: p.points, fatts: p.fatts })),
+        playersSample: allPlayers.slice(0, 2).map((p: any) => ({ id: p.id, name: p.name, points: p.points, fatts: p.fatts })),
         setsDetails: setsDetails,
         totalGameEntries: sets.reduce((sum: number, s: any) => sum + (Array.isArray(s.gameEntries) ? s.gameEntries.length : 0), 0),
       });
@@ -93,10 +109,14 @@ class MongoDBService implements IStorageService {
       }));
       
       console.log('✅ Loaded app data from MongoDB:', sets.length, 'sets,', playersWithTomatoes.length, 'players');
-      return {
+      
+      // Return normalized AppData (sets, NOT playerSets)
+      const normalizedData: AppData = {
         allPlayers: playersWithTomatoes,
         sets,
       };
+      
+      return normalizedData;
     } catch (error) {
       console.error('❌ Error loading app data from MongoDB:', error);
       // Fallback to default data
@@ -108,10 +128,47 @@ class MongoDBService implements IStorageService {
     try {
       const userId = import.meta.env.VITE_USER_ID || 'default';
       
-      // DIAGNOSTIC: Log what we're sending to MongoDB
-      const totalGameEntries = data.sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
-      const allPlayersWithZeros = data.allPlayers.filter(p => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
-      const isBlankTemplate = data.allPlayers.length > 0 && allPlayersWithZeros === data.allPlayers.length && totalGameEntries === 0;
+      // NORMALIZE: Ensure canonical structure (sets, NOT playerSets)
+      const normalizedData: AppData = {
+        allPlayers: data.allPlayers,
+        sets: data.sets.map(set => ({
+          id: set.id,
+          name: set.name,
+          playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
+          gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+        })),
+      };
+      
+      // VALIDATION: Ensure gameEntries are present
+      const totalGameEntries = normalizedData.sets.reduce((sum, set) => 
+        sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+      
+      // Check if original data had gameEntries but normalized doesn't (shouldn't happen, but safety check)
+      const originalTotalGameEntries = data.sets.reduce((sum, set) => 
+        sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+      
+      if (originalTotalGameEntries > 0 && totalGameEntries === 0) {
+        console.error('🚫 [BLOCKED] Save prevented: gameEntries lost during normalization!', {
+          originalTotalGameEntries,
+          normalizedTotalGameEntries: totalGameEntries,
+          originalSets: data.sets.map(s => ({
+            id: s.id,
+            name: s.name,
+            gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+            gameEntriesType: typeof s.gameEntries,
+          })),
+          normalizedSets: normalizedData.sets.map(s => ({
+            id: s.id,
+            name: s.name,
+            gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+            gameEntriesType: typeof s.gameEntries,
+          })),
+        });
+        throw new Error('Save blocked: Game entries were lost during normalization. This is a bug.');
+      }
+      
+      const allPlayersWithZeros = normalizedData.allPlayers.filter(p => p.points === 0 && p.fatts === 0 && p.goldMedals === 0 && p.silverMedals === 0 && p.bronzeMedals === 0).length;
+      const isBlankTemplate = normalizedData.allPlayers.length > 0 && allPlayersWithZeros === normalizedData.allPlayers.length && totalGameEntries === 0;
       
       console.log('💾 [DIAGNOSTIC] MongoDB save (client-side):', {
         apiUrl: this.apiUrl,
@@ -119,12 +176,13 @@ class MongoDBService implements IStorageService {
         method: 'PUT',
         userId: userId,
         queryFilter: { userId },
-        payloadKeys: Object.keys({ userId, data }),
-        dataKeys: Object.keys(data),
-        allPlayersCount: data.allPlayers.length,
-        setsCount: data.sets.length,
+        payloadKeys: Object.keys({ userId, data: normalizedData }),
+        dataKeys: Object.keys(normalizedData),
+        hasPlayerSets: 'playerSets' in normalizedData,
+        allPlayersCount: normalizedData.allPlayers.length,
+        setsCount: normalizedData.sets.length,
         totalGameEntries: totalGameEntries,
-        gameEntriesPerSet: data.sets.map(s => ({
+        gameEntriesPerSet: normalizedData.sets.map(s => ({
           setId: s.id,
           setName: s.name,
           gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
@@ -141,7 +199,7 @@ class MongoDBService implements IStorageService {
         },
         body: JSON.stringify({
           userId,
-          data,
+          data: normalizedData, // Send normalized data (sets, NOT playerSets)
         }),
       });
 

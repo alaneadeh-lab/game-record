@@ -21,19 +21,35 @@ class LocalStorageService implements IStorageService {
       if (stored) {
         const parsed = JSON.parse(stored);
         
+        // NORMALIZE: Convert legacy playerSets to sets if present
+        let sets: any[] = [];
+        if (Array.isArray(parsed.sets)) {
+          sets = parsed.sets;
+        } else if (Array.isArray(parsed.playerSets)) {
+          console.log('🔄 [NORMALIZE] Converting legacy playerSets to sets in localStorage');
+          sets = parsed.playerSets;
+        }
+        
         // Check if this is the new format (has allPlayers and sets)
-        if (parsed.allPlayers && Array.isArray(parsed.allPlayers) && parsed.sets && Array.isArray(parsed.sets)) {
-          console.log('✅ Loaded app data from localStorage:', parsed.sets.length, 'sets,', parsed.allPlayers.length, 'players');
+        if (parsed.allPlayers && Array.isArray(parsed.allPlayers) && sets.length >= 0) {
+          console.log('✅ Loaded app data from localStorage:', sets.length, 'sets,', parsed.allPlayers.length, 'players');
           // Ensure all players have tomatoes field (backward compatibility)
           const playersWithTomatoes = parsed.allPlayers.map((p: any) => ({
             ...p,
             tomatoes: p.tomatoes ?? 0,
           }));
+          
+          // Ensure all sets have gameEntries array
+          const normalizedSets = sets.map((set: any) => ({
+            ...set,
+            gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+          }));
+          
           // Validate that we have actual data, not empty arrays
-          if (playersWithTomatoes.length > 0 || parsed.sets.length > 0) {
+          if (playersWithTomatoes.length > 0 || normalizedSets.length > 0) {
             return {
-              ...parsed,
               allPlayers: playersWithTomatoes,
+              sets: normalizedSets, // Return sets, NOT playerSets
             };
           }
         }
@@ -54,8 +70,19 @@ class LocalStorageService implements IStorageService {
   }
 
   async saveAppData(data: AppData): Promise<void> {
+    // NORMALIZE: Ensure canonical structure (sets, NOT playerSets)
+    const normalizedData: AppData = {
+      allPlayers: data.allPlayers,
+      sets: data.sets.map(set => ({
+        id: set.id,
+        name: set.name,
+        playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
+        gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+      })),
+    };
+    
     try {
-      const serialized = JSON.stringify(data);
+      const serialized = JSON.stringify(normalizedData);
       const sizeInMB = (serialized.length / (1024 * 1024)).toFixed(2);
       
       // Warn if data is getting large
@@ -75,8 +102,8 @@ class LocalStorageService implements IStorageService {
         
         // Try to save without photos as a last resort
         const dataWithoutPhotos: AppData = {
-          allPlayers: data.allPlayers.map(p => ({ ...p, photo: undefined })),
-          sets: data.sets,
+          allPlayers: normalizedData.allPlayers.map((p: any) => ({ ...p, photo: undefined })),
+          sets: normalizedData.sets,
         };
         
         try {

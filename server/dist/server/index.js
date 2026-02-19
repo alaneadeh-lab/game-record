@@ -7,10 +7,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5200;
 const MONGODB_URI_RAW = process.env.MONGODB_URI || '';
+const MONGODB_URI_RESTORE_RAW = process.env.MONGODB_URI_RESTORE || '';
 const DB_NAME = process.env.DB_NAME || 'game-record';
 const COLLECTION_NAME = 'app-data';
 // URL-encode the MongoDB URI to handle special characters in password
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
+const MONGODB_URI_RESTORE = MONGODB_URI_RESTORE_RAW ? encodeURI(MONGODB_URI_RESTORE_RAW) : '';
 // CORS configuration: Allow production URL, custom domain, and all Vercel preview deployments
 const corsOptions = {
     origin: (origin, callback) => {
@@ -341,53 +343,6 @@ app.get('/api/app-data', async (req, res) => {
     catch (error) {
         console.error('❌ Error loading app data:', error);
         res.status(500).json({ error: 'Failed to load app data' });
-    }
-});
-// Forensic endpoint - Get forensic information about data loss events
-app.get('/api/app-data/forensics', async (req, res) => {
-    try {
-        if (!db) {
-            addCorsHeaders(req, res);
-            return res.status(503).json({ error: 'Database not connected' });
-        }
-        const userId = req.query.userId || 'default';
-        const collection = db.collection(COLLECTION_NAME);
-        const doc = await collection.findOne({ userId });
-        const existingData = doc?.data || (doc?.allPlayers || doc?.sets ? {
-            allPlayers: doc.allPlayers || [],
-            sets: doc.sets || [],
-        } : null);
-        const currentTotalGameEntries = existingData?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
-        // Get write audit log from memory
-        const globalAny = global;
-        const writeAuditLog = globalAny.writeAuditLog || [];
-        const lastBlankOverwrite = writeAuditLog
-            .filter((entry) => entry.isBlankTemplate && entry.userId === userId)
-            .slice(-1)[0];
-        const dataLossEvents = writeAuditLog
-            .filter((entry) => entry.dataLossDetected && entry.userId === userId)
-            .slice(-20); // Last 20 data loss events
-        const forensics = {
-            currentDocument: {
-                updatedAt: doc?.updatedAt || doc?._id?.getTimestamp?.() || null,
-                totalGameEntries: currentTotalGameEntries,
-                playersCount: existingData?.allPlayers?.length || 0,
-                setsCount: existingData?.sets?.length || 0,
-            },
-            lastBlankTemplateOverwrite: lastBlankOverwrite || null,
-            dataLossEvents: dataLossEvents,
-            writeAuditLog: writeAuditLog.filter((entry) => entry.userId === userId).slice(-20),
-        };
-        addCorsHeaders(req, res);
-        res.json(forensics);
-    }
-    catch (error) {
-        console.error('❌ Error in forensic endpoint:', error);
-        addCorsHeaders(req, res);
-        res.status(500).json({
-            error: 'Failed to get forensic info',
-            message: error instanceof Error ? error.message : String(error),
-        });
     }
 });
 // Forensic endpoint - Get forensic information about data loss events
@@ -926,6 +881,193 @@ app.put('/api/app-data', async (req, res) => {
         console.error('❌ Error saving app data:', error);
         addCorsHeaders(req, res);
         res.status(500).json({ error: 'Failed to save app data' });
+    }
+});
+// Helper function to merge AppData (restore wins, but never delete existing gameEntries)
+function mergeAppData(liveData, restoreData) {
+    if (!liveData) {
+        return restoreData;
+    }
+    // Merge players: restore wins (may have updated names/photos)
+    const mergedPlayers = restoreData.allPlayers;
+    // Merge sets: preserve existing gameEntries, but use restore data for everything else
+    const mergedSets = restoreData.sets.map((restoreSet) => {
+        const liveSet = liveData.sets?.find((s) => s.id === restoreSet.id);
+        if (liveSet && Array.isArray(liveSet.gameEntries) && liveSet.gameEntries.length > 0) {
+            // Preserve live gameEntries if restore has missing/empty gameEntries
+            const restoreGameEntries = Array.isArray(restoreSet.gameEntries) ? restoreSet.gameEntries : [];
+            if (restoreGameEntries.length === 0) {
+                console.log(`🛡️ [RECOVERY MERGE] Preserving ${liveSet.gameEntries.length} gameEntries from live for set "${restoreSet.name}" (restore was empty)`);
+                return {
+                    ...restoreSet,
+                    gameEntries: liveSet.gameEntries, // Preserve live entries
+                };
+            }
+            else {
+                // Restore has entries - use them (they may be more complete)
+                return restoreSet;
+            }
+        }
+        else {
+            // No live set or no live entries - use restore as-is
+            return restoreSet;
+        }
+    });
+    // If live has sets that restore doesn't, preserve them
+    if (liveData.sets) {
+        liveData.sets.forEach((liveSet) => {
+            if (!mergedSets.some((ms) => ms.id === liveSet.id)) {
+                mergedSets.push(liveSet);
+            }
+        });
+    }
+    return {
+        allPlayers: mergedPlayers,
+        sets: mergedSets,
+    };
+}
+// Recovery endpoint - Copy from restore cluster to live cluster
+app.post('/api/app-data/recover', async (req, res) => {
+    try {
+        const userId = req.body.userId || 'default';
+        const dryRun = req.body.dryRun !== false; // Default to true for safety
+        if (!MONGODB_URI_RESTORE) {
+            addCorsHeaders(req, res);
+            return res.status(400).json({
+                error: 'MONGODB_URI_RESTORE not configured',
+                message: 'Set MONGODB_URI_RESTORE environment variable to enable recovery',
+            });
+        }
+        console.log(`🔄 [RECOVERY] Starting recovery for userId: ${userId}, dryRun: ${dryRun}`);
+        // Connect to restore cluster
+        const restoreClient = new MongoClient(MONGODB_URI_RESTORE);
+        await restoreClient.connect();
+        const restoreDb = restoreClient.db(DB_NAME);
+        const restoreCollection = restoreDb.collection(COLLECTION_NAME);
+        // Read from restore cluster
+        const restoreDoc = await restoreCollection.findOne({ userId });
+        if (!restoreDoc) {
+            await restoreClient.close();
+            addCorsHeaders(req, res);
+            return res.status(404).json({
+                error: 'No document found in restore cluster',
+                userId,
+            });
+        }
+        const restoreData = restoreDoc.data || (restoreDoc.allPlayers || restoreDoc.sets ? {
+            allPlayers: restoreDoc.allPlayers || [],
+            sets: restoreDoc.sets || [],
+        } : null);
+        if (!restoreData) {
+            await restoreClient.close();
+            addCorsHeaders(req, res);
+            return res.status(400).json({
+                error: 'Invalid data structure in restore cluster',
+            });
+        }
+        const restoreTotalGameEntries = restoreData.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+        const restorePlayersCount = restoreData.allPlayers?.length || 0;
+        const restoreSetsCount = restoreData.sets?.length || 0;
+        console.log(`📊 [RECOVERY] Restore cluster data:`, {
+            playersCount: restorePlayersCount,
+            setsCount: restoreSetsCount,
+            totalGameEntries: restoreTotalGameEntries,
+        });
+        // Read from live cluster
+        if (!db) {
+            await restoreClient.close();
+            addCorsHeaders(req, res);
+            return res.status(503).json({ error: 'Live database not connected' });
+        }
+        const liveCollection = db.collection(COLLECTION_NAME);
+        const liveDoc = await liveCollection.findOne({ userId });
+        const liveData = liveDoc?.data || (liveDoc?.allPlayers || liveDoc?.sets ? {
+            allPlayers: liveDoc.allPlayers || [],
+            sets: liveDoc.sets || [],
+        } : null);
+        const liveTotalGameEntries = liveData?.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+        const livePlayersCount = liveData?.allPlayers?.length || 0;
+        const liveSetsCount = liveData?.sets?.length || 0;
+        console.log(`📊 [RECOVERY] Live cluster data BEFORE:`, {
+            playersCount: livePlayersCount,
+            setsCount: liveSetsCount,
+            totalGameEntries: liveTotalGameEntries,
+        });
+        // Merge data (restore wins, but preserve live gameEntries if restore is empty)
+        const mergedData = mergeAppData(liveData, restoreData);
+        const mergedTotalGameEntries = mergedData.sets.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+        const mergedPlayersCount = mergedData.allPlayers.length;
+        const mergedSetsCount = mergedData.sets.length;
+        console.log(`📊 [RECOVERY] Merged data preview:`, {
+            playersCount: mergedPlayersCount,
+            setsCount: mergedSetsCount,
+            totalGameEntries: mergedTotalGameEntries,
+        });
+        const recoveryPreview = {
+            dryRun,
+            userId,
+            restore: {
+                playersCount: restorePlayersCount,
+                setsCount: restoreSetsCount,
+                totalGameEntries: restoreTotalGameEntries,
+            },
+            liveBefore: {
+                playersCount: livePlayersCount,
+                setsCount: liveSetsCount,
+                totalGameEntries: liveTotalGameEntries,
+            },
+            merged: {
+                playersCount: mergedPlayersCount,
+                setsCount: mergedSetsCount,
+                totalGameEntries: mergedTotalGameEntries,
+            },
+            changes: {
+                playersDelta: mergedPlayersCount - livePlayersCount,
+                setsDelta: mergedSetsCount - liveSetsCount,
+                gameEntriesDelta: mergedTotalGameEntries - liveTotalGameEntries,
+            },
+        };
+        if (dryRun) {
+            console.log(`🔍 [RECOVERY] DRY RUN - Would write merged data to live cluster`);
+            console.log(`   [RECOVERY] Live entries BEFORE: ${liveTotalGameEntries}`);
+            console.log(`   [RECOVERY] Restore entries: ${restoreTotalGameEntries}`);
+            console.log(`   [RECOVERY] Merged entries AFTER: ${mergedTotalGameEntries}`);
+            await restoreClient.close();
+            addCorsHeaders(req, res);
+            return res.json({
+                success: true,
+                message: 'DRY RUN - No changes made',
+                preview: recoveryPreview,
+            });
+        }
+        // Write merged data to live cluster
+        await liveCollection.updateOne({ userId }, {
+            $set: {
+                userId,
+                data: mergedData,
+                updatedAt: new Date(),
+            },
+            $setOnInsert: { createdAt: new Date() }
+        }, { upsert: true });
+        console.log(`✅ [RECOVERY] Recovery completed - wrote merged data to live cluster`);
+        console.log(`   [RECOVERY] Live entries BEFORE: ${liveTotalGameEntries}`);
+        console.log(`   [RECOVERY] Restore entries: ${restoreTotalGameEntries}`);
+        console.log(`   [RECOVERY] Merged entries AFTER: ${mergedTotalGameEntries}`);
+        await restoreClient.close();
+        addCorsHeaders(req, res);
+        res.json({
+            success: true,
+            message: 'Recovery completed successfully',
+            preview: recoveryPreview,
+        });
+    }
+    catch (error) {
+        console.error('❌ [RECOVERY] Error during recovery:', error);
+        addCorsHeaders(req, res);
+        res.status(500).json({
+            error: 'Recovery failed',
+            message: error instanceof Error ? error.message : String(error),
+        });
     }
 });
 // Global error handler - must be last

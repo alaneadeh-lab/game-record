@@ -223,26 +223,41 @@ function App() {
             sets: [defaultSet],
           });
         } else {
+          // NORMALIZE: Convert legacy playerSets to sets if present
+          let normalizedSets: PlayerSet[] = [];
+          if (appData.sets && Array.isArray(appData.sets)) {
+            normalizedSets = appData.sets;
+          } else if ((appData as any).playerSets && Array.isArray((appData as any).playerSets)) {
+            console.log('🔄 [NORMALIZE] Converting legacy playerSets to sets');
+            normalizedSets = (appData as any).playerSets;
+          }
+          
+          // Ensure all sets have gameEntries array
+          normalizedSets = normalizedSets.map(set => ({
+            ...set,
+            gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+          }));
+          
           // Data exists, use it
-          const totalGames = appData.sets?.reduce((sum: number, set: any) => 
+          const totalGames = normalizedSets.reduce((sum: number, set: any) => 
             sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
           
           console.log('✅ Using loaded data:', {
             players: appData.allPlayers.length,
-            sets: appData.sets?.length || 0,
+            sets: normalizedSets.length,
             totalGameEntries: totalGames,
-            setsWithGames: appData.sets?.map((s: any) => ({
+            setsWithGames: normalizedSets.map((s: any) => ({
               name: s.name,
               gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
-            })) || [],
+            })),
           });
           
           // Warn if no game entries found
-          if (totalGames === 0 && appData.sets && appData.sets.length > 0) {
+          if (totalGames === 0 && normalizedSets.length > 0) {
             // DIAGNOSTIC: Expanded warning with detailed info
             const searchedKey = 'sets[].gameEntries';
             const appDataKeys = Object.keys(appData);
-            const setsKeys = appData.sets.length > 0 ? Object.keys(appData.sets[0]) : [];
+            const setsKeys = normalizedSets.length > 0 ? Object.keys(normalizedSets[0]) : [];
             
             console.warn('⚠️ WARNING: Data loaded but NO GAME ENTRIES found!', {
               // What we searched for
@@ -255,11 +270,11 @@ function App() {
               
               // Data preview
               playersCount: appData.allPlayers?.length || 0,
-              setsCount: appData.sets?.length || 0,
+              setsCount: normalizedSets.length,
               totalGameEntries: totalGames,
               
               // Detailed set analysis
-              allSets: appData.sets.map((s: any) => ({
+              allSets: normalizedSets.map((s: any) => ({
                 name: s.name,
                 id: s.id,
                 setKeys: Object.keys(s),
@@ -335,19 +350,27 @@ function App() {
     
     const timeoutId = setTimeout(async () => {
       try {
-        // Normalize: Ensure playerSets -> sets mapping is correct
+        // NORMALIZE: Convert playerSets to sets, ensure gameEntries are present
+        const normalizedSets: PlayerSet[] = playerSets.map(set => ({
+          id: set.id,
+          name: set.name,
+          playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
+          gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+        }));
+        
+        // Create normalized AppData payload (NO playerSets field)
         const appData: AppData = {
           allPlayers,
-          sets: playerSets, // playerSets IS sets (same structure)
+          sets: normalizedSets, // Canonical structure: sets, not playerSets
         };
         
-        // SAFETY CHECK: Ensure gameEntries are included in payload
+        // VALIDATION: Ensure gameEntries are included in payload
         const totalGameEntriesInMemory = playerSets.reduce((sum, set) => 
           sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
         const totalGameEntriesInPayload = appData.sets.reduce((sum, set) => 
           sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
         
-        // CRITICAL: If we have gameEntries in memory but payload is missing them, STOP
+        // CRITICAL: If we have gameEntries in memory but payload is missing them, BLOCK save
         if (totalGameEntriesInMemory > 0 && totalGameEntriesInPayload === 0) {
           console.error('🚫 [BLOCKED] Save prevented: gameEntries exist in memory but missing from payload!', {
             totalGameEntriesInMemory,
@@ -356,11 +379,15 @@ function App() {
               setId: s.id,
               setName: s.name,
               count: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+              gameEntriesType: typeof s.gameEntries,
+              gameEntriesIsArray: Array.isArray(s.gameEntries),
             })),
             payloadSetsGameEntries: appData.sets.map(s => ({
               setId: s.id,
               setName: s.name,
               count: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
+              gameEntriesType: typeof s.gameEntries,
+              gameEntriesIsArray: Array.isArray(s.gameEntries),
             })),
           });
           setSaveStatus('error');
