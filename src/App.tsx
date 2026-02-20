@@ -240,8 +240,28 @@ function App() {
             gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
           }));
           
+          // Load deletedSetIds and dataVersion
+          const loadedDeletedSetIds = Array.isArray(appData.deletedSetIds) ? appData.deletedSetIds : [];
+          const loadedDataVersion = typeof appData.dataVersion === 'number' ? appData.dataVersion : 1;
+          
+          // FILTER: Remove deleted sets
+          const setsBeforeFilter = normalizedSets.length;
+          const filteredSets = normalizedSets.filter(set => !loadedDeletedSetIds.includes(set.id));
+          const setsAfterFilter = filteredSets.length;
+          
+          console.log('🗑️ [DELETE] Filtering deleted sets on load:', {
+            deletedSetIdsCount: loadedDeletedSetIds.length,
+            deletedSetIds: loadedDeletedSetIds.slice(0, 5), // First 5 for diagnostics
+            setsBeforeFilter: setsBeforeFilter,
+            setsAfterFilter: setsAfterFilter,
+            filteredOut: setsBeforeFilter - setsAfterFilter,
+          });
+          
+          setDeletedSetIds(loadedDeletedSetIds);
+          setDataVersion(loadedDataVersion);
+          
           // Data exists, use it
-          const totalGames = normalizedSets.reduce((sum: number, set: any) => 
+          const totalGames = filteredSets.reduce((sum: number, set: any) => 
             sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
           
           console.log('✅ Using loaded data:', {
@@ -298,9 +318,10 @@ function App() {
           }
           
           setAllPlayers(appData.allPlayers);
+          setPlayerSets(filteredSets); // Use filtered sets (deleted ones removed)
           
           // If we have players but no sets, create a default set
-          if (!appData.sets || appData.sets.length === 0) {
+          if (filteredSets.length === 0) {
             console.log('⚠️ No sets found but players exist, creating default set');
             const defaultSet: PlayerSet = {
               id: uuidv4(),
