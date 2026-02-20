@@ -45,11 +45,24 @@ class LocalStorageService implements IStorageService {
             gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
           }));
           
+          // Filter deleted sets on load
+          const deletedSetIds = Array.isArray(parsed.deletedSetIds) ? parsed.deletedSetIds : [];
+          const filteredSets = normalizedSets.filter((set: any) => !deletedSetIds.includes(set.id));
+          
+          console.log('🗑️ [DELETE] Filtering deleted sets on load (localStorage):', {
+            deletedSetIdsCount: deletedSetIds.length,
+            deletedSetIds: deletedSetIds.slice(0, 5),
+            setsBeforeFilter: normalizedSets.length,
+            setsAfterFilter: filteredSets.length,
+          });
+          
           // Validate that we have actual data, not empty arrays
-          if (playersWithTomatoes.length > 0 || normalizedSets.length > 0) {
+          if (playersWithTomatoes.length > 0 || filteredSets.length > 0) {
             return {
               allPlayers: playersWithTomatoes,
-              sets: normalizedSets, // Return sets, NOT playerSets
+              sets: filteredSets, // Return sets, NOT playerSets (filtered)
+              deletedSetIds: deletedSetIds,
+              dataVersion: typeof parsed.dataVersion === 'number' ? parsed.dataVersion : 1,
             };
           }
         }

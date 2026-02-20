@@ -801,7 +801,30 @@ app.put('/api/app-data', async (req, res) => {
     const existingData = existingDoc?.data || (existingDoc?.allPlayers || existingDoc?.sets ? {
       allPlayers: existingDoc.allPlayers || [],
       sets: existingDoc.sets || [],
+      deletedSetIds: existingDoc.deletedSetIds || [],
+      dataVersion: existingDoc.dataVersion || 0,
     } : null);
+    
+    // STALE-SAVE PROTECTION: Reject writes with older dataVersion
+    const incomingDataVersion = typeof incomingData.dataVersion === 'number' ? incomingData.dataVersion : 0;
+    const existingDataVersion = existingData?.dataVersion || 0;
+    
+    if (incomingDataVersion < existingDataVersion) {
+      console.warn('🚫 [STALE WRITE] Rejected write with older dataVersion:', {
+        userId,
+        incomingDataVersion,
+        existingDataVersion,
+        delta: existingDataVersion - incomingDataVersion,
+      });
+      addCorsHeaders(req, res);
+      return res.status(409).json({
+        ok: false,
+        reason: 'stale_write_rejected',
+        incomingDataVersion,
+        existingDataVersion,
+        message: 'Write rejected: Incoming data version is older than existing version',
+      });
+    }
     
     // Calculate incoming game entries
     const incomingTotalGameEntries = incomingData.sets.reduce((sum: number, set: any) => 
@@ -855,51 +878,105 @@ app.put('/api/app-data', async (req, res) => {
       });
     }
     
+    // MERGE deletedSetIds: Union of existing and incoming
+    const existingDeletedSetIds = Array.isArray(existingData?.deletedSetIds) ? existingData.deletedSetIds : [];
+    const incomingDeletedSetIds = Array.isArray(incomingData.deletedSetIds) ? incomingData.deletedSetIds : [];
+    const mergedDeletedSetIds = Array.from(new Set([...existingDeletedSetIds, ...incomingDeletedSetIds]));
+    
+    console.log('🗑️ [DELETE] Merging deletedSetIds:', {
+      existingDeletedSetIdsCount: existingDeletedSetIds.length,
+      incomingDeletedSetIdsCount: incomingDeletedSetIds.length,
+      mergedDeletedSetIdsCount: mergedDeletedSetIds.length,
+      mergedDeletedSetIds: mergedDeletedSetIds.slice(0, 5), // First 5 for diagnostics
+    });
+    
     // SAFE MERGE: Preserve existing gameEntries when incoming is missing/empty
     let mergedData: AppData;
     
     if (existingData) {
       // Merge: Start with existing, overlay incoming, but preserve gameEntries
-      mergedData = {
-        allPlayers: incomingData.allPlayers, // Always use incoming players (they may have updated names/photos)
-        sets: incomingData.sets.map((incomingSet: any) => {
-          // Find matching existing set by ID
-          const existingSet = existingData.sets?.find((s: any) => s.id === incomingSet.id);
+      let mergedSets = incomingData.sets.map((incomingSet: any) => {
+        // Find matching existing set by ID
+        const existingSet = existingData.sets?.find((s: any) => s.id === incomingSet.id);
+        
+        if (existingSet && Array.isArray(existingSet.gameEntries) && existingSet.gameEntries.length > 0) {
+          // Preserve existing gameEntries if incoming is missing or empty
+          const incomingGameEntries = Array.isArray(incomingSet.gameEntries) ? incomingSet.gameEntries : [];
           
-          if (existingSet && Array.isArray(existingSet.gameEntries) && existingSet.gameEntries.length > 0) {
-            // Preserve existing gameEntries if incoming is missing or empty
-            const incomingGameEntries = Array.isArray(incomingSet.gameEntries) ? incomingSet.gameEntries : [];
-            
-            if (incomingGameEntries.length === 0) {
-              console.log(`🛡️ [MERGE] Preserving ${existingSet.gameEntries.length} gameEntries for set "${incomingSet.name}" (incoming was empty)`);
-              return {
-                ...incomingSet,
-                gameEntries: existingSet.gameEntries, // Preserve existing
-              };
-            } else {
-              // Incoming has entries - use them (they may be updates)
-              return incomingSet;
-            }
+          if (incomingGameEntries.length === 0) {
+            console.log(`🛡️ [MERGE] Preserving ${existingSet.gameEntries.length} gameEntries for set "${incomingSet.name}" (incoming was empty)`);
+            return {
+              ...incomingSet,
+              gameEntries: existingSet.gameEntries, // Preserve existing
+            };
           } else {
-            // No existing set or no existing entries - use incoming as-is
+            // Incoming has entries - use them (they may be updates)
             return incomingSet;
           }
-        }),
+        } else {
+          // No existing set or no existing entries - use incoming as-is
+          return incomingSet;
+        }
+      });
+      
+      // If existing has sets that incoming doesn't, preserve them (unless deleted)
+      if (existingData.sets) {
+        existingData.sets.forEach((existingSet: any) => {
+          if (!mergedSets.some((ms: any) => ms.id === existingSet.id)) {
+            // Only preserve if not in deletedSetIds
+            if (!mergedDeletedSetIds.includes(existingSet.id)) {
+              mergedSets.push(existingSet);
+            }
+          }
+        });
+      }
+      
+      // FILTER: Remove sets that are in deletedSetIds
+      const setsBeforeFilter = mergedSets.length;
+      mergedSets = mergedSets.filter((set: any) => !mergedDeletedSetIds.includes(set.id));
+      const setsAfterFilter = mergedSets.length;
+      
+      if (setsBeforeFilter > setsAfterFilter) {
+        const removedSetIds = mergedSets
+          .map((s: any) => s.id)
+          .filter((id: string) => mergedDeletedSetIds.includes(id));
+        console.log('🗑️ [DELETE] Removed sets due to deletedSetIds:', {
+          setsBeforeFilter,
+          setsAfterFilter,
+          removedCount: setsBeforeFilter - setsAfterFilter,
+          removedSetIds: removedSetIds.slice(0, 5), // First 5 for diagnostics
+        });
+      }
+      
+      mergedData = {
+        allPlayers: incomingData.allPlayers, // Always use incoming players (they may have updated names/photos)
+        sets: mergedSets,
+        deletedSetIds: mergedDeletedSetIds,
+        dataVersion: Math.max(incomingDataVersion, existingDataVersion), // Use highest version
       };
       
       console.log('🔄 [MERGE] Merged data:', {
         existingSets: existingData.sets?.length || 0,
         incomingSets: incomingData.sets.length,
-        mergedSets: mergedData.sets.length,
+        mergedSetsBeforeFilter: setsBeforeFilter,
+        mergedSetsAfterFilter: setsAfterFilter,
         existingGameEntries: existingTotalGameEntries,
         incomingGameEntries: incomingTotalGameEntries,
         mergedGameEntries: mergedData.sets.reduce((sum: number, set: any) => 
           sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0),
+        deletedSetIdsCount: mergedDeletedSetIds.length,
+        dataVersion: mergedData.dataVersion,
       });
     } else {
-      // No existing document - use incoming as-is
-      mergedData = incomingData;
-      console.log('📝 [NEW] Creating new document with incoming data');
+      // No existing document - use incoming as-is, but still filter deleted sets
+      const filteredSets = incomingData.sets.filter((set: any) => !mergedDeletedSetIds.includes(set.id));
+      mergedData = {
+        ...incomingData,
+        sets: filteredSets,
+        deletedSetIds: mergedDeletedSetIds,
+        dataVersion: incomingDataVersion,
+      };
+      console.log('📝 [NEW] Creating new document with incoming data (filtered deleted sets)');
     }
     
     // DIAGNOSTIC: Log comprehensive save info

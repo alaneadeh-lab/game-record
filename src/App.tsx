@@ -15,6 +15,8 @@ import { v4 as uuidv4 } from 'uuid';
 function App() {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [playerSets, setPlayerSets] = useState<PlayerSet[]>([]);
+  const [deletedSetIds, setDeletedSetIds] = useState<string[]>([]);
+  const [dataVersion, setDataVersion] = useState<number>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -244,20 +246,20 @@ function App() {
           
           console.log('✅ Using loaded data:', {
             players: appData.allPlayers.length,
-            sets: normalizedSets.length,
+            sets: filteredSets.length,
             totalGameEntries: totalGames,
-            setsWithGames: normalizedSets.map((s: any) => ({
+            setsWithGames: filteredSets.map((s: any) => ({
               name: s.name,
               gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
             })),
           });
           
           // Warn if no game entries found
-          if (totalGames === 0 && normalizedSets.length > 0) {
+          if (totalGames === 0 && filteredSets.length > 0) {
             // DIAGNOSTIC: Expanded warning with detailed info
             const searchedKey = 'sets[].gameEntries';
             const appDataKeys = Object.keys(appData);
-            const setsKeys = normalizedSets.length > 0 ? Object.keys(normalizedSets[0]) : [];
+            const setsKeys = filteredSets.length > 0 ? Object.keys(filteredSets[0]) : [];
             
             console.warn('⚠️ WARNING: Data loaded but NO GAME ENTRIES found!', {
               // What we searched for
@@ -270,11 +272,11 @@ function App() {
               
               // Data preview
               playersCount: appData.allPlayers?.length || 0,
-              setsCount: normalizedSets.length,
+              setsCount: filteredSets.length,
               totalGameEntries: totalGames,
               
               // Detailed set analysis
-              allSets: normalizedSets.map((s: any) => ({
+              allSets: filteredSets.map((s: any) => ({
                 name: s.name,
                 id: s.id,
                 setKeys: Object.keys(s),
@@ -362,6 +364,8 @@ function App() {
         const appData: AppData = {
           allPlayers,
           sets: normalizedSets, // Canonical structure: sets, not playerSets
+          deletedSetIds: deletedSetIds, // Include deleted set IDs
+          dataVersion: dataVersion, // Include data version for stale-save protection
         };
         
         // VALIDATION: Ensure gameEntries are included in payload
@@ -517,6 +521,10 @@ function App() {
       return;
     }
     
+    const setToDelete = playerSets[currentSetIndex];
+    if (!setToDelete) return;
+    
+    // Remove from visible sets
     setPlayerSets(prev => {
       const newSets = prev.filter((_, index) => index !== currentSetIndex);
       // Adjust current index if needed
@@ -525,7 +533,32 @@ function App() {
       }
       return newSets;
     });
-  }, [currentSetIndex, playerSets.length]);
+    
+    // Track deletion in deletedSetIds
+    setDeletedSetIds(prev => {
+      if (prev.includes(setToDelete.id)) {
+        return prev; // Already deleted
+      }
+      const updated = [...prev, setToDelete.id];
+      console.log('🗑️ [DELETE] Set marked for deletion:', {
+        setId: setToDelete.id,
+        setName: setToDelete.name,
+        deletedSetIdsCount: updated.length,
+        deletedSetIds: updated.slice(0, 5), // First 5 for diagnostics
+      });
+      return updated;
+    });
+    
+    // Increment dataVersion to prevent stale saves
+    setDataVersion(prev => {
+      const newVersion = prev + 1;
+      console.log('📊 [VERSION] Data version incremented after delete:', {
+        oldVersion: prev,
+        newVersion: newVersion,
+      });
+      return newVersion;
+    });
+  }, [currentSetIndex, playerSets]);
 
   const handleReorderSets = useCallback((newSets: PlayerSet[]) => {
     setPlayerSets(newSets);
@@ -549,6 +582,8 @@ function App() {
       setCurrentSetIndex(newSets.length - 1);
       return newSets;
     });
+    // Increment dataVersion on mutation
+    setDataVersion(prev => prev + 1);
     setShowNewSetSelector(false);
   }, []);
 
@@ -726,6 +761,9 @@ function App() {
     
     console.log('💾 [DIAGNOSTIC] About to call handleUpdateSet, which will trigger save effect');
     handleUpdateSet(updatedSet);
+    
+    // Increment dataVersion on mutation (adding game entry)
+    setDataVersion(prev => prev + 1);
 
     setShowGameForm(false);
   }, [currentSetIndex, playerSets, handleUpdateSet]);

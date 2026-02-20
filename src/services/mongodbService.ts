@@ -110,10 +110,23 @@ class MongoDBService implements IStorageService {
       
       console.log('✅ Loaded app data from MongoDB:', sets.length, 'sets,', playersWithTomatoes.length, 'players');
       
+      // Filter deleted sets on load
+      const deletedSetIds = Array.isArray(rawData.deletedSetIds) ? rawData.deletedSetIds : [];
+      const filteredSets = sets.filter(set => !deletedSetIds.includes(set.id));
+      
+      console.log('🗑️ [DELETE] Filtering deleted sets on load (MongoDB):', {
+        deletedSetIdsCount: deletedSetIds.length,
+        deletedSetIds: deletedSetIds.slice(0, 5),
+        setsBeforeFilter: sets.length,
+        setsAfterFilter: filteredSets.length,
+      });
+      
       // Return normalized AppData (sets, NOT playerSets)
       const normalizedData: AppData = {
         allPlayers: playersWithTomatoes,
-        sets,
+        sets: filteredSets,
+        deletedSetIds: deletedSetIds,
+        dataVersion: typeof rawData.dataVersion === 'number' ? rawData.dataVersion : 1,
       };
       
       return normalizedData;

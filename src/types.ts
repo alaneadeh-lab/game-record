@@ -30,6 +30,8 @@ export interface PlayerSet {
 export interface AppData {
   allPlayers: Player[];
   sets: PlayerSet[];
+  deletedSetIds?: string[]; // Explicitly deleted set IDs (persisted)
+  dataVersion?: number; // Monotonically increasing version for stale-save protection
 }
 
 export type MedalType = 'gold' | 'silver' | 'bronze';
