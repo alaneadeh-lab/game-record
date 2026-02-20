@@ -49,7 +49,7 @@ export function recalculateMedals(players: Player[], gameEntries: GameEntry[]): 
       const t = medalCounts.find(m => m.id === sorted[3].playerId);
       if (t) {
         t.tomatoes += 1;
-        console.log(`🍅 Tomato awarded to player ${sorted[3].playerId} for 4th place (score: ${sorted[3].score})`);
+        // Removed console.log to reduce console noise when processing many game entries
       }
     }
   }
