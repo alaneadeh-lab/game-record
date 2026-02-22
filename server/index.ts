@@ -62,7 +62,7 @@ const corsOptions = {
     callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
   },
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-RECOVERY-KEY'],
   credentials: false,
 };
 
@@ -88,7 +88,7 @@ const addCorsHeaders = (req: express.Request, res: express.Response) => {
     ) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-RECOVERY-KEY');
       res.setHeader('Access-Control-Allow-Credentials', 'false');
     }
   }

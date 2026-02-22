@@ -51,7 +51,7 @@ const corsOptions = {
         callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     },
     methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-RECOVERY-KEY'],
     credentials: false,
 };
 // Middleware - CORS must come first
@@ -72,7 +72,7 @@ const addCorsHeaders = (req, res) => {
             /^https:\/\/[^/]+\.vercel\.app$/.test(origin)) {
             res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-RECOVERY-KEY');
             res.setHeader('Access-Control-Allow-Credentials', 'false');
         }
     }
