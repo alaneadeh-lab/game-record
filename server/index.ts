@@ -807,7 +807,19 @@ app.put('/api/app-data', async (req, res) => {
     
     // STALE-SAVE PROTECTION: Reject writes with older dataVersion
     const incomingDataVersion = typeof incomingData.dataVersion === 'number' ? incomingData.dataVersion : 0;
-    const existingDataVersion = existingData?.dataVersion || 0;
+    const existingDataVersion = typeof existingData?.dataVersion === 'number' ? existingData.dataVersion : 0;
+    
+    const incomingDeletedSetIdsCount = Array.isArray(incomingData.deletedSetIds) ? incomingData.deletedSetIds.length : 0;
+    const existingDeletedSetIdsCount = Array.isArray(existingData?.deletedSetIds) ? existingData.deletedSetIds.length : 0;
+    
+    console.log('📊 [VERSION] Write attempt:', {
+      userId,
+      existingVersion: existingDataVersion,
+      incomingVersion: incomingDataVersion,
+      willAccept: incomingDataVersion >= existingDataVersion,
+      incomingDeletedSetIdsCount,
+      existingDeletedSetIdsCount,
+    });
     
     if (incomingDataVersion < existingDataVersion) {
       console.warn('🚫 [STALE WRITE] Rejected write with older dataVersion:', {
@@ -815,13 +827,17 @@ app.put('/api/app-data', async (req, res) => {
         incomingDataVersion,
         existingDataVersion,
         delta: existingDataVersion - incomingDataVersion,
+        incomingDeletedSetIdsCount,
+        existingDeletedSetIdsCount,
       });
       addCorsHeaders(req, res);
       return res.status(409).json({
         ok: false,
         reason: 'stale_write_rejected',
+        code: 'stale_write_rejected',
         incomingDataVersion,
-        existingDataVersion,
+        serverDataVersion: existingDataVersion,
+        existingDataVersion, // Keep for backward compatibility
         message: 'Write rejected: Incoming data version is older than existing version',
       });
     }
@@ -966,6 +982,9 @@ app.put('/api/app-data', async (req, res) => {
           sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0),
         deletedSetIdsCount: mergedDeletedSetIds.length,
         dataVersion: mergedData.dataVersion,
+        existingVersion: existingDataVersion,
+        incomingVersion: incomingDataVersion,
+        accepted: true,
       });
     } else {
       // No existing document - use incoming as-is, but still filter deleted sets

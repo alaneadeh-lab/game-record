@@ -122,11 +122,12 @@ class MongoDBService implements IStorageService {
       });
       
       // Return normalized AppData (sets, NOT playerSets)
+      // Ensure dataVersion defaults to 0 if missing (not 1, to allow first write)
       const normalizedData: AppData = {
         allPlayers: playersWithTomatoes,
         sets: filteredSets,
         deletedSetIds: deletedSetIds,
-        dataVersion: typeof rawData.dataVersion === 'number' ? rawData.dataVersion : 1,
+        dataVersion: typeof rawData.dataVersion === 'number' ? rawData.dataVersion : 0,
       };
       
       return normalizedData;
@@ -137,11 +138,12 @@ class MongoDBService implements IStorageService {
     }
   }
 
-  async saveAppData(data: AppData): Promise<void> {
+  async saveAppData(data: AppData): Promise<{ ok: boolean; code?: string; serverVersion?: number; message?: string }> {
     try {
       const userId = import.meta.env.VITE_USER_ID || 'default';
       
       // NORMALIZE: Ensure canonical structure (sets, NOT playerSets)
+      // Preserve deletedSetIds and dataVersion
       const normalizedData: AppData = {
         allPlayers: data.allPlayers,
         sets: data.sets.map(set => ({
@@ -150,6 +152,8 @@ class MongoDBService implements IStorageService {
           playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
           gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
         })),
+        deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
+        dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
       };
       
       // VALIDATION: Ensure gameEntries are present
@@ -219,20 +223,44 @@ class MongoDBService implements IStorageService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: response.statusText }));
         
-        // Handle blocked save (409 Conflict)
-        if (response.status === 409 && errorData.reason === 'blocked_blank_overwrite') {
-          console.error('🚫 [BLOCKED] Server prevented blank template overwrite:', errorData);
-          throw new Error(`Save blocked: ${errorData.message || 'Cannot overwrite existing game history with blank template'}`);
+        // Handle stale write rejection (409 Conflict)
+        if (response.status === 409 && errorData.reason === 'stale_write_rejected') {
+          console.error('🚫 [STALE WRITE] Server rejected stale write:', errorData);
+          return {
+            ok: false,
+            code: 'stale_write_rejected',
+            serverVersion: errorData.existingDataVersion,
+            message: errorData.message || 'Write rejected: Incoming data version is older than existing version',
+          };
         }
         
-        throw new Error(`Failed to save app data: ${errorData.error || response.statusText}`);
+        // Handle blocked save (409 Conflict - blank template)
+        if (response.status === 409 && errorData.reason === 'blocked_blank_overwrite') {
+          console.error('🚫 [BLOCKED] Server prevented blank template overwrite:', errorData);
+          return {
+            ok: false,
+            code: 'blocked_blank_overwrite',
+            message: errorData.message || 'Cannot overwrite existing game history with blank template',
+          };
+        }
+        
+        return {
+          ok: false,
+          code: 'save_failed',
+          message: errorData.error || response.statusText,
+        };
       }
 
       const sizeInMB = (JSON.stringify(data).length / (1024 * 1024)).toFixed(2);
       console.log(`✅ Saved app data to MongoDB (${sizeInMB}MB)`);
+      return { ok: true };
     } catch (error) {
       console.error('❌ Failed to save app data to MongoDB:', error);
-      throw error;
+      return {
+        ok: false,
+        code: 'save_error',
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 

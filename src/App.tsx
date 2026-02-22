@@ -241,8 +241,9 @@ function App() {
           }));
           
           // Load deletedSetIds and dataVersion
+          // Ensure dataVersion defaults to 0 if missing (not 1, to allow first write)
           const loadedDeletedSetIds = Array.isArray(appData.deletedSetIds) ? appData.deletedSetIds : [];
-          const loadedDataVersion = typeof appData.dataVersion === 'number' ? appData.dataVersion : 1;
+          const loadedDataVersion = typeof appData.dataVersion === 'number' ? appData.dataVersion : 0;
           
           // FILTER: Remove deleted sets
           const setsBeforeFilter = normalizedSets.length;
@@ -442,29 +443,89 @@ function App() {
           warning: isBlankTemplate ? '⚠️ WARNING: This looks like a blank template (all players have zeros, no game entries)!' : null,
         });
         
-        await storageService.saveAppData(appData);
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
+        const saveResult = await storageService.saveAppData(appData);
+        
+        if (!saveResult.ok && saveResult.code === 'stale_write_rejected') {
+          console.warn('🔄 [RETRY] Stale write detected, refetching and retrying...');
+          
+          // Refetch latest data
+          const freshData = await storageService.loadAppData();
+          
+          // Merge local pending changes (especially deletedSetIds) into fresh data
+          const mergedDeletedSetIds = Array.from(new Set([
+            ...(freshData.deletedSetIds || []),
+            ...deletedSetIds,
+          ]));
+          
+          // Use higher version + 1
+          const mergedDataVersion = Math.max(freshData.dataVersion || 0, dataVersion) + 1;
+          
+          // Merge sets: start with fresh, overlay local changes
+          const localSetIds = new Set(playerSets.map(s => s.id));
+          const mergedSets = [
+            ...freshData.sets.filter(s => !mergedDeletedSetIds.includes(s.id) && !localSetIds.has(s.id)),
+            ...normalizedSets.filter(s => !mergedDeletedSetIds.includes(s.id)),
+          ];
+          
+          // Update state with merged data
+          setAllPlayers(freshData.allPlayers);
+          setPlayerSets(mergedSets);
+          setDeletedSetIds(mergedDeletedSetIds);
+          setDataVersion(mergedDataVersion);
+          
+          // Retry save with merged data
+          const retryAppData: AppData = {
+            allPlayers: freshData.allPlayers,
+            sets: mergedSets,
+            deletedSetIds: mergedDeletedSetIds,
+            dataVersion: mergedDataVersion,
+          };
+          
+          const retryResult = await storageService.saveAppData(retryAppData);
+          
+          if (!retryResult.ok) {
+            console.error('❌ [RETRY] Retry save failed:', retryResult);
+            setSaveStatus('error');
+            setTimeout(() => {
+              alert('⚠️ Save conflict. Please refresh the page.');
+            }, 100);
+          } else {
+            console.log('✅ [RETRY] Retry save succeeded');
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+          }
+        } else if (!saveResult.ok) {
+          console.error('❌ Failed to save data:', saveResult);
+          setSaveStatus('error');
+          
+          // Handle blocked save response from server
+          if (saveResult.code === 'blocked_blank_overwrite') {
+            setTimeout(() => {
+              alert('⚠️ Save blocked: Server prevented overwriting existing game history with blank template.');
+            }, 100);
+          } else {
+            setTimeout(() => {
+              alert(`Failed to save: ${saveResult.message || 'Unknown error'}`);
+            }, 100);
+          }
+        } else {
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        }
       } catch (error: any) {
         console.error('❌ Failed to save data:', error);
         setSaveStatus('error');
         
-        // Handle blocked save response from server
-        if (error.message && error.message.includes('blocked_blank_overwrite')) {
-          setTimeout(() => {
-            alert('⚠️ Save blocked: Server prevented overwriting existing game history with blank template.');
-          }, 100);
-        }
-        
         // Show user-friendly error message for quota exceeded
         if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-          // Error message is already shown by storageService, but we can add UI feedback
           setTimeout(() => {
             alert('⚠️ Storage quota exceeded!\n\nYour data is too large to save. Please:\n- Remove some player photos\n- Use smaller images\n- Clear browser cache');
           }, 100);
+        } else {
+          setTimeout(() => {
+            alert(`Failed to save: ${error.message || 'Unknown error'}`);
+          }, 100);
         }
-        
-        setTimeout(() => setSaveStatus('idle'), 5000);
       }
     }, 300);
 
@@ -536,7 +597,7 @@ function App() {
     setShowNewSetSelector(true);
   }, [allPlayers]);
 
-  const handleDeleteSet = useCallback(() => {
+  const handleDeleteSet = useCallback(async () => {
     if (playerSets.length <= 1) {
       alert('Cannot delete the last set. You must have at least one set.');
       return;
@@ -545,41 +606,101 @@ function App() {
     const setToDelete = playerSets[currentSetIndex];
     if (!setToDelete) return;
     
+    // Store before state for diagnostics
+    const beforeDeletedSetIdsLength = deletedSetIds.length;
+    
     // Remove from visible sets
-    setPlayerSets(prev => {
-      const newSets = prev.filter((_, index) => index !== currentSetIndex);
-      // Adjust current index if needed
-      if (currentSetIndex >= newSets.length) {
-        setCurrentSetIndex(newSets.length - 1);
-      }
-      return newSets;
-    });
+    const newSets = playerSets.filter((_, index) => index !== currentSetIndex);
+    setPlayerSets(newSets);
+    
+    // Adjust current index if needed
+    if (currentSetIndex >= newSets.length) {
+      setCurrentSetIndex(newSets.length - 1);
+    }
     
     // Track deletion in deletedSetIds
-    setDeletedSetIds(prev => {
-      if (prev.includes(setToDelete.id)) {
-        return prev; // Already deleted
-      }
-      const updated = [...prev, setToDelete.id];
-      console.log('🗑️ [DELETE] Set marked for deletion:', {
-        setId: setToDelete.id,
-        setName: setToDelete.name,
-        deletedSetIdsCount: updated.length,
-        deletedSetIds: updated.slice(0, 5), // First 5 for diagnostics
-      });
-      return updated;
-    });
+    let updatedDeletedSetIds: string[];
+    if (deletedSetIds.includes(setToDelete.id)) {
+      updatedDeletedSetIds = deletedSetIds; // Already deleted
+    } else {
+      updatedDeletedSetIds = [...deletedSetIds, setToDelete.id];
+    }
+    setDeletedSetIds(updatedDeletedSetIds);
     
     // Increment dataVersion to prevent stale saves
-    setDataVersion(prev => {
-      const newVersion = prev + 1;
-      console.log('📊 [VERSION] Data version incremented after delete:', {
-        oldVersion: prev,
-        newVersion: newVersion,
-      });
-      return newVersion;
+    const newDataVersion = dataVersion + 1;
+    setDataVersion(newDataVersion);
+    
+    console.log('🗑️ [DELETE] Set marked for deletion:', {
+      deletedSetId: setToDelete.id,
+      deletedSetName: setToDelete.name,
+      beforeDeletedSetIdsLength: beforeDeletedSetIdsLength,
+      afterDeletedSetIdsLength: updatedDeletedSetIds.length,
+      outgoingDataVersion: newDataVersion,
+      deletedSetIds: updatedDeletedSetIds.slice(0, 5), // First 5 for diagnostics
     });
-  }, [currentSetIndex, playerSets]);
+    
+    // Immediately save with updated data
+    try {
+      const normalizedSets: PlayerSet[] = newSets.map(set => ({
+        id: set.id,
+        name: set.name,
+        playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
+        gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+      }));
+      
+      const appData: AppData = {
+        allPlayers,
+        sets: normalizedSets,
+        deletedSetIds: updatedDeletedSetIds,
+        dataVersion: newDataVersion,
+      };
+      
+      const saveResult = await storageService.saveAppData(appData);
+      
+      if (!saveResult.ok && saveResult.code === 'stale_write_rejected') {
+        console.warn('🔄 [RETRY] Stale write on delete, refetching and retrying...');
+        
+        // Refetch latest data
+        const freshData = await storageService.loadAppData();
+        
+        // Merge: union deletedSetIds, use higher version
+        const mergedDeletedSetIds = Array.from(new Set([...updatedDeletedSetIds, ...(freshData.deletedSetIds || [])]));
+        const mergedDataVersion = Math.max(freshData.dataVersion || 0, newDataVersion) + 1;
+        
+        // Update state with fresh data but preserve our deletion
+        setAllPlayers(freshData.allPlayers);
+        setPlayerSets(freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)));
+        setDeletedSetIds(mergedDeletedSetIds);
+        setDataVersion(mergedDataVersion);
+        
+        // Retry save with merged data
+        const retryAppData: AppData = {
+          allPlayers: freshData.allPlayers,
+          sets: freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)),
+          deletedSetIds: mergedDeletedSetIds,
+          dataVersion: mergedDataVersion,
+        };
+        
+        const retryResult = await storageService.saveAppData(retryAppData);
+        
+        if (!retryResult.ok) {
+          console.error('❌ [DELETE] Retry save failed:', retryResult);
+          alert('⚠️ Save conflict. Please refresh the page.');
+        } else {
+          console.log('✅ [DELETE] Retry save succeeded');
+        }
+      } else if (!saveResult.ok) {
+        console.error('❌ [DELETE] Save failed:', saveResult);
+        alert(`Failed to save deletion: ${saveResult.message || 'Unknown error'}`);
+      } else {
+        console.log('✅ [DELETE] Save succeeded immediately');
+      }
+    } catch (error) {
+      console.error('❌ [DELETE] Error during save:', error);
+      alert('Failed to save deletion. Please try again.');
+    }
+  }, [currentSetIndex, playerSets, deletedSetIds, dataVersion, allPlayers]);
 
   const handleReorderSets = useCallback((newSets: PlayerSet[]) => {
     setPlayerSets(newSets);

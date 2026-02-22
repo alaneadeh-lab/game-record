@@ -4,9 +4,16 @@ import type { PlayerSet, Player, AppData } from '../types';
  * Storage service interface - makes it easy to swap between localStorage and MongoDB
  * To connect MongoDB, just implement this interface and swap the service in App.tsx
  */
+export interface SaveResult {
+  ok: boolean;
+  code?: string;
+  serverVersion?: number;
+  message?: string;
+}
+
 export interface IStorageService {
   loadAppData(): Promise<AppData>;
-  saveAppData(data: AppData): Promise<void>;
+  saveAppData(data: AppData): Promise<SaveResult>;
 }
 
 /**
@@ -62,7 +69,7 @@ class LocalStorageService implements IStorageService {
               allPlayers: playersWithTomatoes,
               sets: filteredSets, // Return sets, NOT playerSets (filtered)
               deletedSetIds: deletedSetIds,
-              dataVersion: typeof parsed.dataVersion === 'number' ? parsed.dataVersion : 1,
+              dataVersion: typeof parsed.dataVersion === 'number' ? parsed.dataVersion : 0,
             };
           }
         }
@@ -82,8 +89,9 @@ class LocalStorageService implements IStorageService {
     return this.getDefaultAppData();
   }
 
-  async saveAppData(data: AppData): Promise<void> {
+  async saveAppData(data: AppData): Promise<SaveResult> {
     // NORMALIZE: Ensure canonical structure (sets, NOT playerSets)
+    // Preserve deletedSetIds and dataVersion
     const normalizedData: AppData = {
       allPlayers: data.allPlayers,
       sets: data.sets.map(set => ({
@@ -92,6 +100,8 @@ class LocalStorageService implements IStorageService {
         playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
         gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
       })),
+      deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
+      dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
     };
     
     try {
@@ -105,6 +115,7 @@ class LocalStorageService implements IStorageService {
       
       localStorage.setItem(this.STORAGE_KEY, serialized);
       console.log(`✅ Saved app data (${sizeInMB}MB)`);
+      return { ok: true };
     } catch (error) {
       if (error instanceof DOMException && error.name === 'QuotaExceededError') {
         console.error("❌ localStorage quota exceeded! Data is too large to save.");
@@ -124,13 +135,23 @@ class LocalStorageService implements IStorageService {
           localStorage.setItem(this.STORAGE_KEY, serializedWithoutPhotos);
           console.warn("⚠️ Saved data without photos to prevent data loss");
           alert("⚠️ Storage quota exceeded! Your data was saved but player photos were removed to free up space. Please use smaller images.");
+          return { ok: true };
         } catch (retryError) {
           console.error("❌ Failed to save even without photos:", retryError);
           alert("❌ Storage quota exceeded! Unable to save data. Please clear browser storage or use smaller images.");
+          return {
+            ok: false,
+            code: 'quota_exceeded',
+            message: 'Storage quota exceeded and retry without photos also failed',
+          };
         }
       } else {
         console.error("❌ Failed to save app data:", error);
-        throw error;
+        return {
+          ok: false,
+          code: 'save_error',
+          message: error instanceof Error ? error.message : String(error),
+        };
       }
     }
   }
