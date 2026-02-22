@@ -13,6 +13,8 @@ const MONGODB_URI_RAW = process.env.MONGODB_URI || '';
 const MONGODB_URI_RESTORE_RAW = process.env.MONGODB_URI_RESTORE || '';
 const DB_NAME = process.env.DB_NAME || 'game-record';
 const COLLECTION_NAME = 'app-data';
+const AUDIT_COLLECTION_NAME = 'app-data-audit';
+const RECOVERY_KEY = process.env.RECOVERY_KEY || '';
 
 // URL-encode the MongoDB URI to handle special characters in password
 const MONGODB_URI = MONGODB_URI_RAW ? encodeURI(MONGODB_URI_RAW) : 'mongodb://localhost:27017';
@@ -822,6 +824,31 @@ app.put('/api/app-data', async (req, res) => {
     });
     
     if (incomingDataVersion < existingDataVersion) {
+      const blockReason = 'stale_write_rejected';
+      const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      
+      // Calculate game entries for audit log (before merge)
+      const incomingTotalGameEntries = incomingData.sets.reduce((sum: number, set: any) => 
+        sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
+      const existingTotalGameEntries = existingData?.sets?.reduce((sum: number, set: any) => 
+        sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
+      
+      // Log to audit collection
+      const auditCollection = db.collection(AUDIT_COLLECTION_NAME);
+      await auditCollection.insertOne({
+        ts: new Date(),
+        userId,
+        requestOrigin,
+        userAgent,
+        existingVersion: existingDataVersion,
+        incomingVersion: incomingDataVersion,
+        existingTotalGameEntries,
+        incomingTotalGameEntries,
+        blocked: true,
+        blockReason,
+      });
+      
       console.warn('🚫 [STALE WRITE] Rejected write with older dataVersion:', {
         userId,
         incomingDataVersion,
@@ -850,7 +877,51 @@ app.put('/api/app-data', async (req, res) => {
     const existingTotalGameEntries = existingData?.sets?.reduce((sum: number, set: any) => 
       sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0;
     
-    // FORENSIC LOG: Data loss detection
+    // DATA-LOSS WRITE GUARD: Block destructive writes unless explicitly allowed
+    const allowDestructive = req.body.allowDestructive === true;
+    const isDestructiveWrite = (existingTotalGameEntries > 0 && incomingTotalGameEntries < existingTotalGameEntries) ||
+                               (existingTotalGameEntries > 0 && incomingTotalGameEntries === 0);
+    
+    if (isDestructiveWrite && !allowDestructive) {
+      const blockReason = 'destructive_write_blocked';
+      const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      
+      // Log to audit collection
+      const auditCollection = db.collection(AUDIT_COLLECTION_NAME);
+      await auditCollection.insertOne({
+        ts: new Date(),
+        userId,
+        requestOrigin,
+        userAgent,
+        existingVersion: existingDataVersion,
+        incomingVersion: incomingDataVersion,
+        existingTotalGameEntries,
+        incomingTotalGameEntries,
+        blocked: true,
+        blockReason,
+      });
+      
+      console.warn('🚫 [DATA-LOSS GUARD] Blocked destructive write:', {
+        userId,
+        existingTotalGameEntries,
+        incomingTotalGameEntries,
+        delta: incomingTotalGameEntries - existingTotalGameEntries,
+        allowDestructive,
+      });
+      
+      addCorsHeaders(req, res);
+      return res.status(409).json({
+        ok: false,
+        code: 'destructive_write_blocked',
+        reason: 'destructive_write_blocked',
+        existingTotalGameEntries,
+        incomingTotalGameEntries,
+        message: 'Write blocked: This would reduce game entries. Include allowDestructive=true to override.',
+      });
+    }
+    
+    // FORENSIC LOG: Data loss detection (for logging, but write is already allowed at this point)
     const dataLossDetected = existingTotalGameEntries > 0 && incomingTotalGameEntries < existingTotalGameEntries;
     const dataLossAmount = dataLossDetected ? existingTotalGameEntries - incomingTotalGameEntries : 0;
     
@@ -1002,8 +1073,24 @@ app.put('/api/app-data', async (req, res) => {
     const mergedTotalGameEntries = mergedData.sets.reduce((sum: number, set: any) => 
       sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0);
     
-    // FORENSIC LOG: Log every write with data loss detection
+    // Log to audit collection (for accepted writes)
     const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const auditCollection = db.collection(AUDIT_COLLECTION_NAME);
+    await auditCollection.insertOne({
+      ts: new Date(),
+      userId,
+      requestOrigin,
+      userAgent,
+      existingVersion: existingDataVersion,
+      incomingVersion: incomingDataVersion,
+      existingTotalGameEntries,
+      incomingTotalGameEntries,
+      blocked: false,
+      blockReason: null,
+    });
+    
+    // FORENSIC LOG: Log every write with data loss detection
     console.log('💾 [FORENSIC] MongoDB write operation:', {
       timestamp: new Date().toISOString(),
       dbName: DB_NAME,
@@ -1144,8 +1231,47 @@ function mergeAppData(liveData: AppData | null, restoreData: AppData): AppData {
   };
 }
 
+// Helper function to check recovery key
+function checkRecoveryKey(req: express.Request, res: express.Response): boolean {
+  const providedKey = req.headers['x-recovery-key'] as string;
+  
+  if (!RECOVERY_KEY) {
+    console.warn('⚠️ [RECOVERY] RECOVERY_KEY not set in environment');
+    addCorsHeaders(req, res);
+    res.status(500).json({ error: 'Recovery key not configured' });
+    return false;
+  }
+  
+  if (!providedKey || providedKey !== RECOVERY_KEY) {
+    const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    console.warn('🚫 [RECOVERY] Unauthorized recovery attempt:', {
+      requestOrigin,
+      userAgent,
+      hasKey: !!providedKey,
+      keyMatches: providedKey === RECOVERY_KEY,
+    });
+    addCorsHeaders(req, res);
+    res.status(401).json({ error: 'Unauthorized: Invalid or missing X-RECOVERY-KEY header' });
+    return false;
+  }
+  
+  return true;
+}
+
 // Recovery endpoint - Copy from restore cluster to live cluster
 app.post('/api/app-data/recover', async (req, res) => {
+  // Protect with recovery key
+  if (!checkRecoveryKey(req, res)) {
+    return;
+  }
+  
+  const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  console.log('🔐 [RECOVERY] Authorized recovery access:', {
+    requestOrigin,
+    userAgent,
+  });
   try {
     const userId = (req.body.userId as string) || 'default';
     const dryRun = req.body.dryRun !== false; // Default to true for safety
@@ -1313,6 +1439,56 @@ app.post('/api/app-data/recover', async (req, res) => {
     addCorsHeaders(req, res);
     res.status(500).json({ 
       error: 'Recovery failed',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Audit log endpoint - View last 50 audit logs (protected by recovery key)
+app.get('/api/app-data/audit', async (req, res) => {
+  // Protect with recovery key
+  if (!checkRecoveryKey(req, res)) {
+    return;
+  }
+  
+  try {
+    const userId = (req.query.userId as string) || 'default';
+    const limit = parseInt(req.query.limit as string) || 50;
+    
+    if (!db) {
+      addCorsHeaders(req, res);
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+    
+    const auditCollection = db.collection(AUDIT_COLLECTION_NAME);
+    
+    // Query audit logs, optionally filtered by userId
+    const query: any = {};
+    if (userId && userId !== 'all') {
+      query.userId = userId;
+    }
+    
+    const auditLogs = await auditCollection
+      .find(query)
+      .sort({ ts: -1 }) // Most recent first
+      .limit(limit)
+      .toArray();
+    
+    console.log(`📊 [AUDIT] Retrieved ${auditLogs.length} audit logs for userId: ${userId}`);
+    
+    addCorsHeaders(req, res);
+    return res.json({
+      ok: true,
+      userId,
+      limit,
+      count: auditLogs.length,
+      logs: auditLogs,
+    });
+  } catch (error) {
+    console.error('❌ [AUDIT] Error retrieving audit logs:', error);
+    addCorsHeaders(req, res);
+    return res.status(500).json({
+      error: 'Failed to retrieve audit logs',
       message: error instanceof Error ? error.message : String(error),
     });
   }
