@@ -275,6 +275,10 @@ export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
     const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
     const totals = getSetTotalScoresByPlayer(playerIds, gameEntries);
     const winnerIds = playerIds.filter(id => (totals[id] ?? 0) >= winLimit);
+    // Diagnostic: which set gave whom a win (limit and totals)
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[STARS] Set:', set.name || set.id, '| limit:', winLimit, '| totals:', totals, '| reached limit:', winnerIds);
+    }
     for (const id of winnerIds) {
       wins[id] = (wins[id] ?? 0) + 1;
     }
