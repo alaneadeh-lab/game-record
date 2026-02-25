@@ -807,10 +807,11 @@ function App() {
   }, [playerSets.length]);
 
   const totalStarsByPlayerId = useMemo(() => {
-    const computed = getSetWinsByPlayerId({ allPlayers, sets: playerSets });
-    const merged: Record<string, number> = { ...computed };
+    const computedWins = getSetWinsByPlayerId({ allPlayers, sets: playerSets });
+    console.log('[STARS] computedWins', computedWins, 'legacy', legacySetWinsByPlayerId);
+    const merged: Record<string, number> = { ...computedWins };
     for (const [id, n] of Object.entries(legacySetWinsByPlayerId)) {
-      merged[id] = (merged[id] || 0) + n;
+      merged[id] = (merged[id] ?? 0) + n;
     }
     return merged;
   }, [allPlayers, playerSets, legacySetWinsByPlayerId]);

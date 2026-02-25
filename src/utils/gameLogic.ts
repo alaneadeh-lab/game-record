@@ -260,20 +260,22 @@ function getSetTotalScoresByPlayer(
 }
 
 /**
- * Set winner = highest total cumulative score in that set. Ties = all tied get a win.
- * Returns count of set wins per player across all sets in appData.
+ * Set wins per player across all sets. Uses only score (not fatt).
+ * Empty set (no gameEntries) -> skip, no winner.
+ * Winner = max total score in that set; ties all get +1.
  */
 export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
   const wins: Record<string, number> = {};
   const sets = Array.isArray(appData.sets) ? appData.sets : [];
   for (const set of sets) {
-    const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
     const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+    if (gameEntries.length === 0) continue; // no games -> no winner for this set
+    const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
     const totals = getSetTotalScoresByPlayer(playerIds, gameEntries);
     const scores = playerIds.map(id => ({ id, score: totals[id] ?? 0 }));
     const maxScore = scores.length ? Math.max(...scores.map(s => s.score)) : 0;
-    const winners = scores.filter(s => s.score === maxScore).map(s => s.id);
-    for (const id of winners) {
+    const winnerIds = scores.filter(s => s.score === maxScore).map(s => s.id);
+    for (const id of winnerIds) {
       wins[id] = (wins[id] ?? 0) + 1;
     }
   }

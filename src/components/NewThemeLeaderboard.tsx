@@ -8,7 +8,6 @@ interface NewThemeLeaderboardProps {
   players: Player[];
   gameEntries?: GameEntry[];
   winScoreLimit?: number;
-  totalStarsByPlayerId?: Record<string, number>;
   leaderboardPlayerIds?: string[];
 }
 
@@ -16,7 +15,6 @@ export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
   players,
   gameEntries: _gameEntries = [],
   winScoreLimit = 50,
-  totalStarsByPlayerId = {},
   leaderboardPlayerIds: _leaderboardPlayerIds = [],
 }) => {
   return (
@@ -53,10 +51,10 @@ export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
           </h1>
         </div>
 
-        <PodiumNewTheme players={players} totalStarsByPlayerId={totalStarsByPlayerId} />
+        <PodiumNewTheme players={players} />
 
         <div className="mt-8 sm:mt-10">
-          <StatsPanelNewTheme players={players} totalStarsByPlayerId={totalStarsByPlayerId} />
+          <StatsPanelNewTheme players={players} />
         </div>
 
         <div className="mt-8 sm:mt-10">

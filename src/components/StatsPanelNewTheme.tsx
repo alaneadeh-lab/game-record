@@ -2,17 +2,11 @@ import React from 'react';
 import { getPlayerRank } from '../utils/gameLogic';
 import type { Player } from '../types';
 
-const STAR_CAP = 10;
-
 interface StatsPanelNewThemeProps {
   players: Player[];
-  totalStarsByPlayerId?: Record<string, number>;
 }
 
-export const StatsPanelNewTheme: React.FC<StatsPanelNewThemeProps> = ({
-  players,
-  totalStarsByPlayerId = {},
-}) => {
+export const StatsPanelNewTheme: React.FC<StatsPanelNewThemeProps> = ({ players }) => {
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
 
@@ -66,13 +60,6 @@ export const StatsPanelNewTheme: React.FC<StatsPanelNewThemeProps> = ({
                   >
                     {player.name}
                   </div>
-                  {(totalStarsByPlayerId[player.id] ?? 0) > 0 && (
-                    <div className="text-xs mt-0.5" style={{ color: 'rgba(255,215,0,0.9)' }}>
-                      {(totalStarsByPlayerId[player.id] ?? 0) <= STAR_CAP
-                        ? '⭐'.repeat(totalStarsByPlayerId[player.id] ?? 0)
-                        : `⭐ ×${totalStarsByPlayerId[player.id]}`}
-                    </div>
-                  )}
                 </div>
                 
                 {/* Fatts (Large number) */}

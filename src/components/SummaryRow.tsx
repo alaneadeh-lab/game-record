@@ -8,16 +8,12 @@ const PokerAnimation = lazy(() => import('./PokerAnimation'));
 const TiredEmojiAnimation = lazy(() => import('./TiredEmojiAnimation'));
 const FlySwarm = lazy(() => import('./FlySwarm'));
 
-const STAR_CAP = 10;
-
 interface SummaryRowProps {
   players: Player[];
   type: 'points' | 'fatts';
   title: string;
   /** Win limit for this set (منصة التتويج only). */
   winScoreLimit?: number;
-  /** Total set wins per player (for star display). */
-  totalStarsByPlayerId?: Record<string, number>;
 }
 
 export const SummaryRow: React.FC<SummaryRowProps> = ({
@@ -25,7 +21,6 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   type,
   title,
   winScoreLimit,
-  totalStarsByPlayerId = {},
 }) => {
   const isPoints = type === 'points';
   
@@ -125,7 +120,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
                 className={`embossed rounded-2xl px-4 py-4 bg-gradient-to-br ${getGradient()} text-center transform transition-all duration-200 hover:scale-105 flex flex-col justify-center shadow-3d relative`}
               >
                 <div 
-                  className={`font-semibold mb-0.5 truncate ${isPoints ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}
+                  className={`font-semibold mb-1 sm:mb-2 truncate ${isPoints ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}
                   style={{
                     color: '#ffffff',
                     textShadow: '2px 2px 0px rgba(0,0,0,0.8), 0px 0px 10px rgba(0,0,0,0.5), 0px 2px 4px rgba(0,0,0,0.6)',
@@ -134,13 +129,6 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
                 >
                   {player.name}
                 </div>
-                {isPoints && (totalStarsByPlayerId[player.id] ?? 0) > 0 && (
-                  <div className="text-xs mb-1 sm:mb-2" style={{ color: 'rgba(255,255,255,0.95)' }}>
-                    {(totalStarsByPlayerId[player.id] ?? 0) <= STAR_CAP
-                      ? '⭐'.repeat(totalStarsByPlayerId[player.id] ?? 0)
-                      : `⭐ ×${totalStarsByPlayerId[player.id]}`}
-                  </div>
-                )}
                 <div 
                   className="text-lg sm:text-xl font-bold"
                   style={{

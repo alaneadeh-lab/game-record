@@ -3,17 +3,11 @@ import { getPlayerRank } from '../utils/gameLogic';
 import CartoonImage from './CartoonImage';
 import type { Player } from '../types';
 
-const STAR_CAP = 10;
-
 interface PodiumNewThemeProps {
   players: Player[];
-  totalStarsByPlayerId?: Record<string, number>;
 }
 
-export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({
-  players,
-  totalStarsByPlayerId = {},
-}) => {
+export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({ players }) => {
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
 
@@ -67,13 +61,6 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({
               >
                 {secondPlace.name}
               </div>
-              {(totalStarsByPlayerId[secondPlace.id] ?? 0) > 0 && (
-                <div className="text-xs mt-0.5" style={{ color: 'rgba(255,215,0,0.9)' }}>
-                  {(totalStarsByPlayerId[secondPlace.id] ?? 0) <= STAR_CAP
-                    ? '⭐'.repeat(totalStarsByPlayerId[secondPlace.id] ?? 0)
-                    : `⭐ ×${totalStarsByPlayerId[secondPlace.id]}`}
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -120,13 +107,6 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({
               >
                 {firstPlace.name}
               </div>
-              {(totalStarsByPlayerId[firstPlace.id] ?? 0) > 0 && (
-                <div className="text-xs mt-0.5" style={{ color: 'rgba(255,215,0,0.9)' }}>
-                  {(totalStarsByPlayerId[firstPlace.id] ?? 0) <= STAR_CAP
-                    ? '⭐'.repeat(totalStarsByPlayerId[firstPlace.id] ?? 0)
-                    : `⭐ ×${totalStarsByPlayerId[firstPlace.id]}`}
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -173,13 +153,6 @@ export const PodiumNewTheme: React.FC<PodiumNewThemeProps> = ({
               >
                 {fourthPlace.name}
               </div>
-              {(totalStarsByPlayerId[fourthPlace.id] ?? 0) > 0 && (
-                <div className="text-xs mt-0.5" style={{ color: 'rgba(255,215,0,0.9)' }}>
-                  {(totalStarsByPlayerId[fourthPlace.id] ?? 0) <= STAR_CAP
-                    ? '⭐'.repeat(totalStarsByPlayerId[fourthPlace.id] ?? 0)
-                    : `⭐ ×${totalStarsByPlayerId[fourthPlace.id]}`}
-                </div>
-              )}
             </div>
           </div>
         )}

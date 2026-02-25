@@ -98,7 +98,6 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           players={players}
           gameEntries={gameEntries}
           winScoreLimit={winScoreLimit}
-          totalStarsByPlayerId={totalStarsByPlayerId}
           leaderboardPlayerIds={leaderboardPlayerIds}
         />
       </div>
@@ -141,7 +140,6 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
                   type="points"
                   title="منصة التتويج"
                   winScoreLimit={winScoreLimit}
-                  totalStarsByPlayerId={totalStarsByPlayerId}
                 />
               </div>
 
