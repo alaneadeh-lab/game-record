@@ -9,11 +9,15 @@ export interface SaveResult {
   code?: string;
   serverVersion?: number;
   message?: string;
+  totalGameEntries?: number;
+  dataVersion?: number;
 }
 
 export interface IStorageService {
   loadAppData(): Promise<AppData>;
-  saveAppData(data: AppData): Promise<SaveResult>;
+  saveAppData(data: AppData, options?: { allowDestructive?: boolean }): Promise<SaveResult>;
+  /** Optional: explicit delete of one game entry (MongoDB uses dedicated DELETE endpoint). */
+  deleteGameEntry?(setId: string, entryId: string): Promise<SaveResult>;
 }
 
 /**
@@ -89,7 +93,7 @@ class LocalStorageService implements IStorageService {
     return this.getDefaultAppData();
   }
 
-  async saveAppData(data: AppData): Promise<SaveResult> {
+  async saveAppData(data: AppData, _options?: { allowDestructive?: boolean }): Promise<SaveResult> {
     // NORMALIZE: Ensure canonical structure (sets, NOT playerSets)
     // Preserve deletedSetIds and dataVersion
     const normalizedData: AppData = {

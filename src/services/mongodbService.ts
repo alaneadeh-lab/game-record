@@ -138,7 +138,7 @@ class MongoDBService implements IStorageService {
     }
   }
 
-  async saveAppData(data: AppData): Promise<{ ok: boolean; code?: string; serverVersion?: number; message?: string }> {
+  async saveAppData(data: AppData, options?: { allowDestructive?: boolean }): Promise<{ ok: boolean; code?: string; serverVersion?: number; message?: string }> {
     try {
       const userId = import.meta.env.VITE_USER_ID || 'default';
       
@@ -209,45 +209,56 @@ class MongoDBService implements IStorageService {
         warning: isBlankTemplate ? '⚠️ WARNING: Saving blank template (all zeros, no entries)!' : null,
       });
       
+      const body: { userId: string; data: AppData; allowDestructive?: boolean } = {
+        userId,
+        data: normalizedData,
+      };
+      if (options?.allowDestructive === true) {
+        body.allowDestructive = true;
+      }
+
       const response = await fetch(`${this.apiUrl}/app-data`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId,
-          data: normalizedData, // Send normalized data (sets, NOT playerSets)
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: response.statusText }));
-        
-        // Handle stale write rejection (409 Conflict)
-        if (response.status === 409 && errorData.reason === 'stale_write_rejected') {
+        const errorData = await response.json().catch(() => ({}));
+        const reason = errorData.reason || errorData.code;
+        const serverMessage = errorData.message || errorData.error || response.statusText;
+
+        if (response.status === 409 && reason === 'stale_write_rejected') {
           console.error('🚫 [STALE WRITE] Server rejected stale write:', errorData);
           return {
             ok: false,
             code: 'stale_write_rejected',
-            serverVersion: errorData.existingDataVersion,
-            message: errorData.message || 'Write rejected: Incoming data version is older than existing version',
+            serverVersion: errorData.existingDataVersion ?? errorData.serverDataVersion,
+            message: serverMessage || 'Write rejected: Incoming data version is older than existing version',
           };
         }
-        
-        // Handle blocked save (409 Conflict - blank template)
-        if (response.status === 409 && errorData.reason === 'blocked_blank_overwrite') {
+        if (response.status === 409 && reason === 'destructive_write_blocked') {
+          console.error('🚫 [DESTRUCTIVE] Server blocked destructive write:', errorData);
+          return {
+            ok: false,
+            code: 'destructive_write_blocked',
+            message: serverMessage || 'Write blocked: This would reduce game entries. Use explicit delete or allowDestructive.',
+          };
+        }
+        if (response.status === 409 && reason === 'blocked_blank_overwrite') {
           console.error('🚫 [BLOCKED] Server prevented blank template overwrite:', errorData);
           return {
             ok: false,
             code: 'blocked_blank_overwrite',
-            message: errorData.message || 'Cannot overwrite existing game history with blank template',
+            message: serverMessage || 'Cannot overwrite existing game history with blank template',
           };
         }
-        
         return {
           ok: false,
           code: 'save_failed',
-          message: errorData.error || response.statusText,
+          message: serverMessage || `Save failed (${response.status})`,
         };
       }
 
@@ -259,6 +270,33 @@ class MongoDBService implements IStorageService {
       return {
         ok: false,
         code: 'save_error',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  async deleteGameEntry(setId: string, entryId: string): Promise<{ ok: boolean; code?: string; message?: string; totalGameEntries?: number; dataVersion?: number }> {
+    const userId = import.meta.env.VITE_USER_ID || 'default';
+    const url = `${this.apiUrl}/app-data/sets/${encodeURIComponent(setId)}/entries/${encodeURIComponent(entryId)}?userId=${encodeURIComponent(userId)}`;
+    try {
+      console.log('🗑️ [DELETE ENTRY] Client:', { setId, entryId });
+      const response = await fetch(url, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const code = data.code || (response.status === 404 ? 'not_found' : 'delete_failed');
+        const message = data.error || data.message || (response.status === 404 ? 'Set or entry not found' : `Delete failed (${response.status})`);
+        return { ok: false, code, message };
+      }
+      return {
+        ok: true,
+        totalGameEntries: data.totalGameEntries,
+        dataVersion: data.dataVersion,
+      };
+    } catch (error) {
+      console.error('❌ Failed to delete game entry:', error);
+      return {
+        ok: false,
+        code: 'delete_error',
         message: error instanceof Error ? error.message : String(error),
       };
     }

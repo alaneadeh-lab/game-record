@@ -443,7 +443,24 @@ function App() {
           warning: isBlankTemplate ? '⚠️ WARNING: This looks like a blank template (all players have zeros, no game entries)!' : null,
         });
         
-        const saveResult = await storageService.saveAppData(appData);
+        let saveResult = await storageService.saveAppData(appData);
+
+        if (!saveResult.ok && saveResult.code === 'destructive_write_blocked') {
+          console.warn('🔄 [RETRY] Delete blocked by safety guard. Retrying as destructive delete...');
+          alert('Delete blocked by safety guard. Retrying as destructive delete...');
+          saveResult = await storageService.saveAppData(appData, { allowDestructive: true });
+          if (!saveResult.ok) {
+            console.error('❌ [RETRY] Destructive save failed:', saveResult);
+            setSaveStatus('error');
+            setTimeout(() => {
+              alert(saveResult.message || 'Save failed after retry. Please try again.');
+            }, 100);
+          } else {
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+          }
+          return;
+        }
         
         if (!saveResult.ok && saveResult.code === 'stale_write_rejected') {
           console.warn('🔄 [RETRY] Stale write detected, refetching and retrying...');
@@ -505,7 +522,7 @@ function App() {
             }, 100);
           } else {
             setTimeout(() => {
-              alert(`Failed to save: ${saveResult.message || 'Unknown error'}`);
+              alert(`Failed to save: ${saveResult.message || 'Something went wrong. Please try again.'}`);
             }, 100);
           }
         } else {
@@ -515,15 +532,13 @@ function App() {
       } catch (error: any) {
         console.error('❌ Failed to save data:', error);
         setSaveStatus('error');
-        
-        // Show user-friendly error message for quota exceeded
         if (error instanceof DOMException && error.name === 'QuotaExceededError') {
           setTimeout(() => {
             alert('⚠️ Storage quota exceeded!\n\nYour data is too large to save. Please:\n- Remove some player photos\n- Use smaller images\n- Clear browser cache');
           }, 100);
         } else {
           setTimeout(() => {
-            alert(`Failed to save: ${error.message || 'Unknown error'}`);
+            alert(`Failed to save: ${error?.message || 'Something went wrong. Please try again.'}`);
           }, 100);
         }
       }
@@ -534,15 +549,46 @@ function App() {
 
   const handleUpdateSet = useCallback((updatedSet: PlayerSet) => {
     setPlayerSets(prev => {
-      // create a new array reference
       const updated = [...prev];
-
-      // replace the active set
       updated[currentSetIndex] = { ...updatedSet };
-
-      return updated; // triggers React update
+      return updated;
     });
   }, [currentSetIndex]);
+
+  const handleDeleteGameEntry = useCallback(async (setId: string, entryId: string) => {
+    const prevSets = playerSets;
+    const set = prevSets.find(s => s.id === setId);
+    if (!set || !set.gameEntries.some(e => e.id === entryId)) return;
+
+    const beforeCount = set.gameEntries.length;
+    setPlayerSets(prev =>
+      prev.map(s =>
+        s.id !== setId
+          ? s
+          : { ...s, gameEntries: s.gameEntries.filter(e => e.id !== entryId) }
+      )
+    );
+    const afterCount = beforeCount - 1;
+    console.log('🗑️ [DELETE ENTRY] Client:', { setId, entryId, beforeCount, afterCount });
+
+    if (typeof storageService.deleteGameEntry === 'function') {
+      const result = await storageService.deleteGameEntry(setId, entryId);
+      if (!result.ok) {
+        setPlayerSets(prevSets);
+        const msg =
+          result.code === 'entry_not_found' || result.code === 'set_not_found'
+            ? 'Game entry or set no longer exists.'
+            : result.code === 'not_found'
+              ? 'Data not found on server.'
+              : result.message || 'Delete failed. Please try again.';
+        alert(msg);
+        return;
+      }
+      if (typeof result.dataVersion === 'number') {
+        setDataVersion(result.dataVersion);
+      }
+    }
+  }, [playerSets]);
 
   // Helper to resolve players from IDs
   const resolvePlayers = useCallback((playerIds: string[]): Player[] => {
@@ -692,7 +738,7 @@ function App() {
         }
       } else if (!saveResult.ok) {
         console.error('❌ [DELETE] Save failed:', saveResult);
-        alert(`Failed to save deletion: ${saveResult.message || 'Unknown error'}`);
+        alert(`Failed to save deletion: ${saveResult.message || 'Something went wrong. Please try again.'}`);
       } else {
         console.log('✅ [DELETE] Save succeeded immediately');
       }
@@ -1059,6 +1105,7 @@ function App() {
             onSetChange={handleSetChange}
             onDeleteSet={handleDeleteSet}
             onReorderSets={handleReorderSets}
+            onDeleteGameEntry={handleDeleteGameEntry}
           />
         )}
       </div>
@@ -1190,9 +1237,10 @@ function App() {
             setShowAdmin(false);
             setShowPlayerInventory(true);
           }}
-          onSetChange={handleSetChange}
-          onDeleteSet={handleDeleteSet}
-          onReorderSets={handleReorderSets}
+            onSetChange={handleSetChange}
+            onDeleteSet={handleDeleteSet}
+            onReorderSets={handleReorderSets}
+            onDeleteGameEntry={handleDeleteGameEntry}
         />
       )}
 

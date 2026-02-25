@@ -20,6 +20,7 @@ interface AdminPanelProps {
   onDeleteSet: () => void;
   onReorderSets: (newSets: PlayerSet[]) => void;
   onRestoreFromMongo?: () => void;
+  onDeleteGameEntry?: (setId: string, entryId: string) => void | Promise<void>;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -36,6 +37,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteSet,
   onReorderSets,
   onRestoreFromMongo,
+  onDeleteGameEntry,
 }) => {
   const [activeTab, setActiveTab] = useState<'games' | 'players'>('games');
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
@@ -79,17 +81,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setShowGameForm(false);
   };
 
-  const handleDeleteGame = (entryId: string) => {
+  const handleDeleteGame = async (entryId: string) => {
     const entry = playerSet.gameEntries.find((e) => e.id === entryId);
-    if (entry && confirm('Delete this game entry?')) {
-      // Remove entry from set (stats are calculated per-set on display)
-      const updatedEntries = playerSet.gameEntries.filter((e) => e.id !== entryId);
-      
-      onUpdateSet({
-        ...playerSet,
-        gameEntries: updatedEntries,
-      });
+    if (!entry) return;
+    if (!confirm('Delete this game entry? This cannot be undone.')) return;
+
+    if (onDeleteGameEntry) {
+      await onDeleteGameEntry(playerSet.id, entryId);
+      return;
     }
+    const updatedEntries = playerSet.gameEntries.filter((e) => e.id !== entryId);
+    onUpdateSet({
+      ...playerSet,
+      gameEntries: updatedEntries,
+    });
   };
 
   const handleSavePlayerSelection = (playerIds: string[]) => {

@@ -62,7 +62,7 @@ const corsOptions = {
     callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
   },
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-RECOVERY-KEY'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-RECOVERY-KEY', 'X-APP-KEY'],
   credentials: false,
 };
 
@@ -88,7 +88,7 @@ const addCorsHeaders = (req: express.Request, res: express.Response) => {
     ) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-RECOVERY-KEY');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-RECOVERY-KEY, X-APP-KEY');
       res.setHeader('Access-Control-Allow-Credentials', 'false');
     }
   }
@@ -1088,6 +1088,7 @@ app.put('/api/app-data', async (req, res) => {
       incomingTotalGameEntries,
       blocked: false,
       blockReason: null,
+      allowDestructive: allowDestructive || undefined,
     });
     
     // FORENSIC LOG: Log every write with data loss detection
@@ -1114,21 +1115,11 @@ app.put('/api/app-data', async (req, res) => {
       dbName: DB_NAME,
       collectionName: COLLECTION_NAME,
       userId: userId,
-      queryFilter: { userId },
-      operation: 'updateOne (with $set) - MERGE mode',
-      isUpsert: true,
-      existingDocFound: !!existingDoc,
-      existingTotalGameEntries: existingTotalGameEntries,
-      incomingTotalGameEntries: incomingTotalGameEntries,
+      existingTotalGameEntries,
+      incomingTotalGameEntries,
+      allowDestructive,
+      accepted: true,
       mergedTotalGameEntries: mergedTotalGameEntries,
-      allPlayersCount: mergedData.allPlayers.length,
-      setsCount: mergedData.sets.length,
-      gameEntriesPerSet: mergedData.sets.map((s: any) => ({
-        setId: s.id,
-        setName: s.name,
-        gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
-      })),
-      isBlankTemplate: isBlankTemplate,
       wasBlocked: false,
     });
     
@@ -1180,6 +1171,112 @@ app.put('/api/app-data', async (req, res) => {
     console.error('❌ Error saving app data:', error);
     addCorsHeaders(req, res);
     res.status(500).json({ error: 'Failed to save app data' });
+  }
+});
+
+// Explicit delete of a single game entry (bypasses destructive write guard; always audited)
+app.delete('/api/app-data/sets/:setId/entries/:entryId', async (req, res) => {
+  try {
+    if (!db) {
+      addCorsHeaders(req, res);
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const userId = (req.query.userId as string) || 'default';
+    const { setId, entryId } = req.params;
+    const collection = db.collection(COLLECTION_NAME);
+
+    const doc = await collection.findOne({ userId });
+    const existingData = doc?.data || (doc?.allPlayers || doc?.sets ? {
+      allPlayers: doc.allPlayers || [],
+      sets: doc.sets || [],
+      deletedSetIds: doc.deletedSetIds || [],
+      dataVersion: doc.dataVersion ?? 0,
+    } : null);
+
+    if (!existingData || !Array.isArray(existingData.sets)) {
+      addCorsHeaders(req, res);
+      return res.status(404).json({ error: 'Document or sets not found', code: 'not_found' });
+    }
+
+    const setIndex = existingData.sets.findIndex((s: any) => s.id === setId);
+    if (setIndex === -1) {
+      addCorsHeaders(req, res);
+      return res.status(404).json({ error: 'Set not found', code: 'set_not_found' });
+    }
+
+    const set = existingData.sets[setIndex];
+    const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+    const entryIndex = gameEntries.findIndex((e: any) => e.id === entryId);
+    if (entryIndex === -1) {
+      addCorsHeaders(req, res);
+      return res.status(404).json({ error: 'Entry not found', code: 'entry_not_found' });
+    }
+
+    const beforeCount = existingData.sets.reduce((sum: number, s: any) =>
+      sum + (Array.isArray(s.gameEntries) ? s.gameEntries.length : 0), 0);
+    const newEntries = gameEntries.filter((e: any) => e.id !== entryId);
+    const updatedSet = { ...set, gameEntries: newEntries };
+    const updatedSets = [...existingData.sets];
+    updatedSets[setIndex] = updatedSet;
+    const afterCount = updatedSets.reduce((sum: number, s: any) =>
+      sum + (Array.isArray(s.gameEntries) ? s.gameEntries.length : 0), 0);
+    const newDataVersion = (typeof existingData.dataVersion === 'number' ? existingData.dataVersion : 0) + 1;
+
+    const mergedData = {
+      allPlayers: existingData.allPlayers || [],
+      sets: updatedSets,
+      deletedSetIds: Array.isArray(existingData.deletedSetIds) ? existingData.deletedSetIds : [],
+      dataVersion: newDataVersion,
+    };
+
+    console.log('🗑️ [DELETE ENTRY]', {
+      userId,
+      setId,
+      entryId,
+      beforeEntryCount: beforeCount,
+      afterEntryCount: afterCount,
+      outgoingDataVersion: newDataVersion,
+    });
+
+    const auditCollection = db.collection(AUDIT_COLLECTION_NAME);
+    const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    await auditCollection.insertOne({
+      ts: new Date(),
+      userId,
+      requestOrigin,
+      userAgent,
+      blockReason: 'delete_game_entry',
+      blocked: false,
+      setId,
+      entryId,
+      beforeTotalGameEntries: beforeCount,
+      afterTotalGameEntries: afterCount,
+      dataVersion: newDataVersion,
+    });
+
+    await collection.updateOne(
+      { userId },
+      {
+        $set: {
+          userId,
+          data: mergedData,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    addCorsHeaders(req, res);
+    res.json({
+      success: true,
+      totalGameEntries: afterCount,
+      dataVersion: newDataVersion,
+    });
+  } catch (error) {
+    console.error('❌ Error deleting game entry:', error);
+    addCorsHeaders(req, res);
+    res.status(500).json({ error: 'Failed to delete game entry' });
   }
 });
 
