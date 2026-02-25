@@ -7,7 +7,7 @@ import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
 import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
-import { calculatePlayerStatsForSet, getSetWinsByPlayerId, getWinScoreLimit } from './utils/gameLogic';
+import { calculatePlayerStatsForSet, getWinScoreLimit } from './utils/gameLogic';
 import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/dataRecovery';
 import type { PlayerSet, Player, AppData, GameEntry } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -806,15 +806,8 @@ function App() {
     }
   }, [playerSets.length]);
 
-  const totalStarsByPlayerId = useMemo(() => {
-    const computedWins = getSetWinsByPlayerId({ allPlayers, sets: playerSets });
-    console.log('[STARS] computedWins', computedWins, 'legacy', legacySetWinsByPlayerId);
-    const merged: Record<string, number> = { ...computedWins };
-    for (const [id, n] of Object.entries(legacySetWinsByPlayerId)) {
-      merged[id] = (merged[id] ?? 0) + n;
-    }
-    return merged;
-  }, [allPlayers, playerSets, legacySetWinsByPlayerId]);
+  // Stars: legacy only for now (Asim +2); no computed set wins
+  const totalStarsByPlayerId = useMemo(() => ({ ...legacySetWinsByPlayerId }), [legacySetWinsByPlayerId]);
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
