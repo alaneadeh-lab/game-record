@@ -11,6 +11,8 @@ import type { Player, GameEntry } from '../types';
 interface PlayersViewProps {
   players: Player[];
   gameEntries?: GameEntry[];
+  winScoreLimit?: number;
+  totalStarsByPlayerId?: Record<string, number>;
   onAddGameClick?: () => void;
   onAdminClick?: () => void;
   theme?: 'default' | 'new';
@@ -20,6 +22,8 @@ interface PlayersViewProps {
 export const PlayersView: React.FC<PlayersViewProps> = ({ 
   players, 
   gameEntries = [],
+  winScoreLimit = 50,
+  totalStarsByPlayerId = {},
   onAddGameClick,
   onAdminClick,
   theme = 'default',
@@ -27,6 +31,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
 }) => {
   const ranks = getPlayerRank(players);
   const sortedPlayers = [...players].sort((a, b) => ranks[a.id] - ranks[b.id]);
+  const leaderboardPlayerIds = sortedPlayers.map(p => p.id);
 
   const handleThemeToggle = () => {
     if (onThemeChange) {
@@ -92,6 +97,9 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
         <NewThemeLeaderboard 
           players={players}
           gameEntries={gameEntries}
+          winScoreLimit={winScoreLimit}
+          totalStarsByPlayerId={totalStarsByPlayerId}
+          leaderboardPlayerIds={leaderboardPlayerIds}
         />
       </div>
     );
@@ -120,14 +128,21 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           <PlayerCard 
             key={player.id}
             player={player} 
-            rank={ranks[player.id]} 
+            rank={ranks[player.id]}
+            totalStars={totalStarsByPlayerId[player.id] ?? 0}
           />
         ))}
       </div>
 
-              {/* Points Row */}
+              {/* Points Row - منصة التتويج with win limit badge */}
               <div className="mt-8 flex-shrink-0">
-                <SummaryRow players={sortedPlayers} type="points" title="منصة التتويج" />
+                <SummaryRow
+                  players={sortedPlayers}
+                  type="points"
+                  title="منصة التتويج"
+                  winScoreLimit={winScoreLimit}
+                  totalStarsByPlayerId={totalStarsByPlayerId}
+                />
               </div>
 
               {/* Fatts Row */}
@@ -140,10 +155,14 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
         <MedalsTable players={sortedPlayers} />
       </div>
 
-      {/* Games History Table */}
+      {/* Games History Table - order by leaderboard, winning score green */}
       {gameEntries.length > 0 && (
         <div className="mt-6 w-full">
-          <GamesHistoryTable gameEntries={gameEntries} players={sortedPlayers} />
+          <GamesHistoryTable
+            gameEntries={gameEntries}
+            players={sortedPlayers}
+            leaderboardPlayerIds={leaderboardPlayerIds}
+          />
         </div>
       )}
 

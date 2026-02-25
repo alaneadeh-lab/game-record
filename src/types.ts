@@ -25,6 +25,10 @@ export interface PlayerSet {
   name: string;
   playerIds: string[]; // References to players in global inventory
   gameEntries: GameEntry[];
+  /** Points limit where a game ends for this set. Default 50 if missing (migration). */
+  winScoreLimit?: number;
+  /** Optional display label (e.g. "حد الفوز") */
+  winScoreLabel?: string;
 }
 
 export interface AppData {
@@ -32,6 +36,8 @@ export interface AppData {
   sets: PlayerSet[];
   deletedSetIds?: string[]; // Explicitly deleted set IDs (persisted)
   dataVersion?: number; // Monotonically increasing version for stale-save protection
+  /** Manual baseline set wins (e.g. pre-app history). Applied once; never double-applied. */
+  legacySetWinsByPlayerId?: Record<string, number>;
 }
 
 export type MedalType = 'gold' | 'silver' | 'bronze';

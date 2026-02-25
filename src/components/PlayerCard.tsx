@@ -5,12 +5,15 @@ import ThirdPlaceBadge from './ThirdPlaceBadge';
 import TomatoBadge from './TomatoBadge';
 import type { Player } from '../types';
 
+const STAR_CAP = 10;
+
 interface PlayerCardProps {
   player: Player;
   rank: number;
+  totalStars?: number;
 }
 
-export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
+export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank, totalStars = 0 }) => {
   const getRankStyles = () => {
     switch (rank) {
       case 1:
@@ -114,6 +117,11 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, rank }) => {
       {/* Player Name - Below Card */}
       <div className="mt-2 text-white text-base font-semibold text-center">
         {player.name}
+        {totalStars > 0 && (
+          <div className="text-xs mt-0.5 opacity-90">
+            {totalStars <= STAR_CAP ? '⭐'.repeat(totalStars) : `⭐ ×${totalStars}`}
+          </div>
+        )}
       </div>
     </div>
   );

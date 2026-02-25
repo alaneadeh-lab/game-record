@@ -1,4 +1,14 @@
-import type { Player, GameEntry, MedalType } from '../types';
+import type { Player, GameEntry, MedalType, AppData } from '../types';
+
+/** Default win score limit for sets created before this field existed. */
+export const DEFAULT_WIN_SCORE_LIMIT = 50;
+
+/** Safe win score limit for a set (1–9999). */
+export function getWinScoreLimit(set: { winScoreLimit?: number }): number {
+  const n = set.winScoreLimit;
+  if (typeof n === 'number' && n >= 1 && n <= 9999) return Math.floor(n);
+  return DEFAULT_WIN_SCORE_LIMIT;
+}
 
 export function calculateMedalPoints(player: Player): number {
   return (player.goldMedals * 3) +
@@ -228,5 +238,45 @@ export function calculatePlayerStatsForSet(
       fatts: playerWithFatts?.fatts || 0,
     };
   });
+}
+
+/**
+ * Total cumulative score per player in a set (sum of all gameEntries playerScores.score).
+ */
+function getSetTotalScoresByPlayer(
+  playerIds: string[],
+  gameEntries: GameEntry[]
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const id of playerIds) totals[id] = 0;
+  for (const entry of gameEntries) {
+    for (const ps of entry.playerScores) {
+      if (totals[ps.playerId] !== undefined) {
+        totals[ps.playerId] = (totals[ps.playerId] ?? 0) + ps.score;
+      }
+    }
+  }
+  return totals;
+}
+
+/**
+ * Set winner = highest total cumulative score in that set. Ties = all tied get a win.
+ * Returns count of set wins per player across all sets in appData.
+ */
+export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
+  const wins: Record<string, number> = {};
+  const sets = Array.isArray(appData.sets) ? appData.sets : [];
+  for (const set of sets) {
+    const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
+    const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+    const totals = getSetTotalScoresByPlayer(playerIds, gameEntries);
+    const scores = playerIds.map(id => ({ id, score: totals[id] ?? 0 }));
+    const maxScore = scores.length ? Math.max(...scores.map(s => s.score)) : 0;
+    const winners = scores.filter(s => s.score === maxScore).map(s => s.id);
+    for (const id of winners) {
+      wins[id] = (wins[id] ?? 0) + 1;
+    }
+  }
+  return wins;
 }
 

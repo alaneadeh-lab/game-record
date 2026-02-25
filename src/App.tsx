@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Plus, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { PlayersView } from './components/PlayersView';
 import { AdminPanel } from './components/AdminPanel';
@@ -7,7 +7,7 @@ import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
 import { GameEntryForm } from './components/GameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
-import { calculatePlayerStatsForSet } from './utils/gameLogic';
+import { calculatePlayerStatsForSet, getSetWinsByPlayerId, getWinScoreLimit } from './utils/gameLogic';
 import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/dataRecovery';
 import type { PlayerSet, Player, AppData, GameEntry } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,6 +17,7 @@ function App() {
   const [playerSets, setPlayerSets] = useState<PlayerSet[]>([]);
   const [deletedSetIds, setDeletedSetIds] = useState<string[]>([]);
   const [dataVersion, setDataVersion] = useState<number>(1);
+  const [legacySetWinsByPlayerId, setLegacySetWinsByPlayerId] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -214,6 +215,7 @@ function App() {
             name: 'Default Set',
             playerIds: defaultPlayers.map(p => p.id),
             gameEntries: [],
+            winScoreLimit: 50,
           };
 
           setAllPlayers(defaultPlayers);
@@ -234,13 +236,17 @@ function App() {
             normalizedSets = (appData as any).playerSets;
           }
           
-          // Ensure all sets have gameEntries array
+          // Ensure all sets have gameEntries array and winScoreLimit (migration default 50)
           normalizedSets = normalizedSets.map(set => ({
             ...set,
             gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+            winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
+              ? Math.floor(set.winScoreLimit)
+              : 50,
+            winScoreLabel: set.winScoreLabel,
           }));
           
-          // Load deletedSetIds and dataVersion
+          // Load deletedSetIds, dataVersion, legacySetWinsByPlayerId
           // Ensure dataVersion defaults to 0 if missing (not 1, to allow first write)
           const loadedDeletedSetIds = Array.isArray(appData.deletedSetIds) ? appData.deletedSetIds : [];
           const loadedDataVersion = typeof appData.dataVersion === 'number' ? appData.dataVersion : 0;
@@ -260,6 +266,11 @@ function App() {
           
           setDeletedSetIds(loadedDeletedSetIds);
           setDataVersion(loadedDataVersion);
+          setLegacySetWinsByPlayerId(
+            appData.legacySetWinsByPlayerId && typeof appData.legacySetWinsByPlayerId === 'object'
+              ? appData.legacySetWinsByPlayerId
+              : {}
+          );
           
           // Data exists, use it
           const totalGames = filteredSets.reduce((sum: number, set: any) => 
@@ -324,12 +335,13 @@ function App() {
           // If we have players but no sets, create a default set
           if (filteredSets.length === 0) {
             console.log('⚠️ No sets found but players exist, creating default set');
-            const defaultSet: PlayerSet = {
-              id: uuidv4(),
-              name: 'Default Set',
-              playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
-              gameEntries: [],
-            };
+          const defaultSet: PlayerSet = {
+            id: uuidv4(),
+            name: 'Default Set',
+            playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
+            gameEntries: [],
+            winScoreLimit: 50,
+          };
             setPlayerSets([defaultSet]);
           } else {
             setPlayerSets(appData.sets);
@@ -353,6 +365,7 @@ function App() {
           name: 'Default Set',
           playerIds: defaultPlayers.map(p => p.id),
           gameEntries: [],
+          winScoreLimit: 50,
         };
         setAllPlayers(defaultPlayers);
         setPlayerSets([defaultSet]);
@@ -374,20 +387,25 @@ function App() {
     
     const timeoutId = setTimeout(async () => {
       try {
-        // NORMALIZE: Convert playerSets to sets, ensure gameEntries are present
+        // NORMALIZE: Convert playerSets to sets, ensure gameEntries and winScoreLimit present
         const normalizedSets: PlayerSet[] = playerSets.map(set => ({
           id: set.id,
           name: set.name,
           playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
           gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+          winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
+            ? Math.floor(set.winScoreLimit)
+            : 50,
+          winScoreLabel: set.winScoreLabel,
         }));
         
         // Create normalized AppData payload (NO playerSets field)
         const appData: AppData = {
           allPlayers,
-          sets: normalizedSets, // Canonical structure: sets, not playerSets
-          deletedSetIds: deletedSetIds, // Include deleted set IDs
-          dataVersion: dataVersion, // Include data version for stale-save protection
+          sets: normalizedSets,
+          deletedSetIds: deletedSetIds,
+          dataVersion: dataVersion,
+          legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
         };
         
         // VALIDATION: Ensure gameEntries are included in payload
@@ -489,6 +507,7 @@ function App() {
           setPlayerSets(mergedSets);
           setDeletedSetIds(mergedDeletedSetIds);
           setDataVersion(mergedDataVersion);
+          setLegacySetWinsByPlayerId(freshData.legacySetWinsByPlayerId ?? {});
           
           // Retry save with merged data
           const retryAppData: AppData = {
@@ -545,7 +564,7 @@ function App() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [allPlayers, playerSets, isLoading]);
+  }, [allPlayers, playerSets, deletedSetIds, dataVersion, legacySetWinsByPlayerId, isLoading]);
 
   const handleUpdateSet = useCallback((updatedSet: PlayerSet) => {
     setPlayerSets(prev => {
@@ -700,6 +719,7 @@ function App() {
         sets: normalizedSets,
         deletedSetIds: updatedDeletedSetIds,
         dataVersion: newDataVersion,
+        legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
       };
       
       const saveResult = await storageService.saveAppData(appData);
@@ -719,6 +739,7 @@ function App() {
         setPlayerSets(freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)));
         setDeletedSetIds(mergedDeletedSetIds);
         setDataVersion(mergedDataVersion);
+        setLegacySetWinsByPlayerId(freshData.legacySetWinsByPlayerId ?? {});
         
         // Retry save with merged data
         const retryAppData: AppData = {
@@ -726,6 +747,7 @@ function App() {
           sets: freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)),
           deletedSetIds: mergedDeletedSetIds,
           dataVersion: mergedDataVersion,
+          legacySetWinsByPlayerId: freshData.legacySetWinsByPlayerId,
         };
         
         const retryResult = await storageService.saveAppData(retryAppData);
@@ -758,19 +780,22 @@ function App() {
     }
   }, [currentSetIndex, playerSets]);
 
-  const handleSaveNewSet = useCallback((playerIds: string[]) => {
+  const handleSaveNewSet = useCallback((playerIds: string[], winScoreLimit?: number) => {
     setPlayerSets((prev) => {
+      const limit = typeof winScoreLimit === 'number' && winScoreLimit >= 1 && winScoreLimit <= 9999
+        ? Math.floor(winScoreLimit)
+        : 50;
       const newSet: PlayerSet = {
         id: Date.now().toString(),
         name: `Set ${prev.length + 1}`,
         playerIds,
         gameEntries: [],
+        winScoreLimit: limit,
       };
       const newSets = [...prev, newSet];
       setCurrentSetIndex(newSets.length - 1);
       return newSets;
     });
-    // Increment dataVersion on mutation
     setDataVersion(prev => prev + 1);
     setShowNewSetSelector(false);
   }, []);
@@ -780,6 +805,15 @@ function App() {
       setCurrentSetIndex(index);
     }
   }, [playerSets.length]);
+
+  const totalStarsByPlayerId = useMemo(() => {
+    const computed = getSetWinsByPlayerId({ allPlayers, sets: playerSets });
+    const merged: Record<string, number> = { ...computed };
+    for (const [id, n] of Object.entries(legacySetWinsByPlayerId)) {
+      merged[id] = (merged[id] || 0) + n;
+    }
+    return merged;
+  }, [allPlayers, playerSets, legacySetWinsByPlayerId]);
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -1090,6 +1124,7 @@ function App() {
               name: 'No Set Selected',
               playerIds: allPlayers.slice(0, 4).map(p => p.id),
               gameEntries: [],
+              winScoreLimit: 50,
             }}
             allPlayers={allPlayers}
             playerSets={playerSets}
@@ -1207,6 +1242,8 @@ function App() {
           onSave={handleSaveNewSet}
           onCancel={() => setShowNewSetSelector(false)}
           title="Create New Set"
+          showWinLimit
+          defaultWinScoreLimit={50}
         />
       )}
 
@@ -1336,6 +1373,8 @@ function App() {
                     <PlayersView 
                       players={calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries)} 
                       gameEntries={set.gameEntries}
+                      winScoreLimit={getWinScoreLimit(set)}
+                      totalStarsByPlayerId={totalStarsByPlayerId}
                       onAddGameClick={handleAddGameClick}
                       onAdminClick={handleAdminClick}
                     />

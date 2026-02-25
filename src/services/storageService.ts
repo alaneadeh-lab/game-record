@@ -1,4 +1,5 @@
 import type { PlayerSet, Player, AppData } from '../types';
+import { normalizeAppDataOnLoad } from '../utils/appDataNormalize';
 
 /**
  * Storage service interface - makes it easy to swap between localStorage and MongoDB
@@ -50,10 +51,14 @@ class LocalStorageService implements IStorageService {
             tomatoes: p.tomatoes ?? 0,
           }));
           
-          // Ensure all sets have gameEntries array
+          // Ensure all sets have gameEntries array and winScoreLimit (migration default 50)
           const normalizedSets = sets.map((set: any) => ({
             ...set,
             gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+            winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
+              ? Math.floor(set.winScoreLimit)
+              : 50,
+            winScoreLabel: set.winScoreLabel,
           }));
           
           // Filter deleted sets on load
@@ -69,12 +74,18 @@ class LocalStorageService implements IStorageService {
           
           // Validate that we have actual data, not empty arrays
           if (playersWithTomatoes.length > 0 || filteredSets.length > 0) {
-            return {
+            let loaded: AppData = {
               allPlayers: playersWithTomatoes,
-              sets: filteredSets, // Return sets, NOT playerSets (filtered)
+              sets: filteredSets,
               deletedSetIds: deletedSetIds,
               dataVersion: typeof parsed.dataVersion === 'number' ? parsed.dataVersion : 0,
+              legacySetWinsByPlayerId:
+                parsed.legacySetWinsByPlayerId && typeof parsed.legacySetWinsByPlayerId === 'object'
+                  ? parsed.legacySetWinsByPlayerId
+                  : undefined,
             };
+            loaded = normalizeAppDataOnLoad(loaded);
+            return loaded;
           }
         }
         
@@ -103,9 +114,17 @@ class LocalStorageService implements IStorageService {
         name: set.name,
         playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
         gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+        winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
+          ? Math.floor(set.winScoreLimit)
+          : 50,
+        winScoreLabel: set.winScoreLabel,
       })),
       deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
       dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
+      legacySetWinsByPlayerId:
+        data.legacySetWinsByPlayerId && typeof data.legacySetWinsByPlayerId === 'object'
+          ? data.legacySetWinsByPlayerId
+          : undefined,
     };
     
     try {
@@ -342,4 +361,5 @@ export const getDefaultPlayerSet = (): PlayerSet => ({
   name: 'Set 1',
   playerIds: ['1', '2', '3', '4'],
   gameEntries: [],
+  winScoreLimit: 50,
 });

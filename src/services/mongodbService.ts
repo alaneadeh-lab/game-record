@@ -1,5 +1,6 @@
 import type { AppData, PlayerSet } from '../types';
 import type { IStorageService } from './storageService';
+import { normalizeAppDataOnLoad } from '../utils/appDataNormalize';
 
 /**
  * MongoDB storage service implementation
@@ -65,10 +66,14 @@ class MongoDBService implements IStorageService {
         sets = rawData.playerSets;
       }
       
-      // Ensure all sets have gameEntries array
+      // Ensure all sets have gameEntries array and winScoreLimit (migration default 50)
       sets = sets.map(set => ({
         ...set,
         gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+        winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
+          ? Math.floor(set.winScoreLimit)
+          : 50,
+        winScoreLabel: set.winScoreLabel,
       }));
       
       // Ensure allPlayers is an array
@@ -121,15 +126,18 @@ class MongoDBService implements IStorageService {
         setsAfterFilter: filteredSets.length,
       });
       
-      // Return normalized AppData (sets, NOT playerSets)
-      // Ensure dataVersion defaults to 0 if missing (not 1, to allow first write)
-      const normalizedData: AppData = {
+      // Return normalized AppData (sets, NOT playerSets) and apply load migrations
+      let normalizedData: AppData = {
         allPlayers: playersWithTomatoes,
         sets: filteredSets,
         deletedSetIds: deletedSetIds,
         dataVersion: typeof rawData.dataVersion === 'number' ? rawData.dataVersion : 0,
+        legacySetWinsByPlayerId:
+          rawData.legacySetWinsByPlayerId && typeof rawData.legacySetWinsByPlayerId === 'object'
+            ? rawData.legacySetWinsByPlayerId
+            : undefined,
       };
-      
+      normalizedData = normalizeAppDataOnLoad(normalizedData);
       return normalizedData;
     } catch (error) {
       console.error('❌ Error loading app data from MongoDB:', error);
@@ -151,9 +159,17 @@ class MongoDBService implements IStorageService {
           name: set.name,
           playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
           gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+          winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
+            ? Math.floor(set.winScoreLimit)
+            : 50,
+          winScoreLabel: set.winScoreLabel,
         })),
         deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
         dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
+        legacySetWinsByPlayerId:
+          data.legacySetWinsByPlayerId && typeof data.legacySetWinsByPlayerId === 'object'
+            ? data.legacySetWinsByPlayerId
+            : undefined,
       };
       
       // VALIDATION: Ensure gameEntries are present

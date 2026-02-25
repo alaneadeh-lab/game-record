@@ -354,25 +354,32 @@ app.get('/api/app-data', async (req, res) => {
         appData = { allPlayers: [], sets: [] };
       }
       
-      // DIAGNOSTIC: Log final appData structure
+      // Migration: default winScoreLimit for sets missing it (backwards compatibility)
+      if (appData.sets && Array.isArray(appData.sets)) {
+        appData.sets = appData.sets.map((s: any) => {
+          const n = s.winScoreLimit;
+          const winScoreLimit =
+            typeof n === 'number' && n >= 1 && n <= 9999 ? Math.floor(n) : 50;
+          return {
+            ...s,
+            gameEntries: Array.isArray(s.gameEntries) ? s.gameEntries : [],
+            winScoreLimit,
+            winScoreLabel: s.winScoreLabel,
+          };
+        });
+      }
+      if (!appData.legacySetWinsByPlayerId || typeof appData.legacySetWinsByPlayerId !== 'object') {
+        appData.legacySetWinsByPlayerId = undefined;
+      }
+
       console.log(`📊 [DIAGNOSTIC] Final appData structure:`, {
         hasAppData: !!appData,
         appDataKeys: Object.keys(appData),
         playersCount: appData.allPlayers?.length || 0,
         setsCount: appData.sets?.length || 0,
         totalGames: appData.sets?.reduce((sum: number, set: any) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
-        setsDetails: appData.sets?.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          playerCount: Array.isArray(s.playerIds) ? s.playerIds.length : 0,
-          setKeys: Object.keys(s),
-          hasGameEntries: 'gameEntries' in s,
-          gameEntriesType: typeof s.gameEntries,
-          gameEntriesIsArray: Array.isArray(s.gameEntries),
-          gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
-        })) || [],
       });
-      
+
       res.json(appData);
     } else {
       // Return default structure
@@ -1036,10 +1043,16 @@ app.put('/api/app-data', async (req, res) => {
       }
       
       mergedData = {
-        allPlayers: incomingData.allPlayers, // Always use incoming players (they may have updated names/photos)
+        allPlayers: incomingData.allPlayers,
         sets: mergedSets,
         deletedSetIds: mergedDeletedSetIds,
-        dataVersion: Math.max(incomingDataVersion, existingDataVersion), // Use highest version
+        dataVersion: Math.max(incomingDataVersion, existingDataVersion),
+        legacySetWinsByPlayerId:
+          incomingData.legacySetWinsByPlayerId && typeof incomingData.legacySetWinsByPlayerId === 'object'
+            ? incomingData.legacySetWinsByPlayerId
+            : existingData?.legacySetWinsByPlayerId && typeof existingData.legacySetWinsByPlayerId === 'object'
+              ? existingData.legacySetWinsByPlayerId
+              : undefined,
       };
       
       console.log('🔄 [MERGE] Merged data:', {
@@ -1065,6 +1078,10 @@ app.put('/api/app-data', async (req, res) => {
         sets: filteredSets,
         deletedSetIds: mergedDeletedSetIds,
         dataVersion: incomingDataVersion,
+        legacySetWinsByPlayerId:
+          incomingData.legacySetWinsByPlayerId && typeof incomingData.legacySetWinsByPlayerId === 'object'
+            ? incomingData.legacySetWinsByPlayerId
+            : undefined,
       };
       console.log('📝 [NEW] Creating new document with incoming data (filtered deleted sets)');
     }
@@ -1228,6 +1245,10 @@ app.delete('/api/app-data/sets/:setId/entries/:entryId', async (req, res) => {
       sets: updatedSets,
       deletedSetIds: Array.isArray(existingData.deletedSetIds) ? existingData.deletedSetIds : [],
       dataVersion: newDataVersion,
+      legacySetWinsByPlayerId:
+        existingData.legacySetWinsByPlayerId && typeof existingData.legacySetWinsByPlayerId === 'object'
+          ? existingData.legacySetWinsByPlayerId
+          : undefined,
     };
 
     console.log('🗑️ [DELETE ENTRY]', {
