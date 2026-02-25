@@ -262,7 +262,8 @@ function getSetTotalScoresByPlayer(
 /**
  * Set wins per player across all sets. Uses only score (not fatt).
  * Empty set (no gameEntries) -> skip, no winner.
- * Winner = max total score in that set; ties all get +1.
+ * Winner = reached the set's winning score: total cumulative score >= set's winScoreLimit.
+ * Only players who reached the win limit get a star for that set.
  */
 export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
   const wins: Record<string, number> = {};
@@ -270,11 +271,10 @@ export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
   for (const set of sets) {
     const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
     if (gameEntries.length === 0) continue; // no games -> no winner for this set
+    const winLimit = getWinScoreLimit(set);
     const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
     const totals = getSetTotalScoresByPlayer(playerIds, gameEntries);
-    const scores = playerIds.map(id => ({ id, score: totals[id] ?? 0 }));
-    const maxScore = scores.length ? Math.max(...scores.map(s => s.score)) : 0;
-    const winnerIds = scores.filter(s => s.score === maxScore).map(s => s.id);
+    const winnerIds = playerIds.filter(id => (totals[id] ?? 0) >= winLimit);
     for (const id of winnerIds) {
       wins[id] = (wins[id] ?? 0) + 1;
     }
