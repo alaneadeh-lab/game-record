@@ -80,10 +80,7 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
                 </button>
               </div>
               <button
-                onClick={() => {
-                  onSetChange(index);
-                  onClose();
-                }}
+                onClick={() => onSetChange(index)}
                 className={`flex-1 py-3 rounded-xl font-bold text-center transition-colors ${
                   index === currentSetIndex
                     ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'

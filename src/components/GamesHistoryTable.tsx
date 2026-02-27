@@ -66,7 +66,7 @@ export const GamesHistoryTable: React.FC<GamesHistoryTableProps> = ({
           <tbody>
             {sortedGames.map((game) => {
               const scores = game.playerScores.map((ps) => ps.score);
-              const maxScore = scores.length ? Math.max(...scores) : undefined;
+              const minScore = scores.length ? Math.min(...scores) : undefined; // lowest score = best
               return (
                 <tr
                   key={game.id}
@@ -79,9 +79,9 @@ export const GamesHistoryTable: React.FC<GamesHistoryTableProps> = ({
                     const playerScore = game.playerScores.find((ps) => ps.playerId === player.id);
                     const score = playerScore?.score ?? '-';
                     const isWinner =
-                      maxScore !== undefined &&
+                      minScore !== undefined &&
                       playerScore != null &&
-                      playerScore.score === maxScore;
+                      playerScore.score === minScore;
                     return (
                       <td
                         key={player.id}
