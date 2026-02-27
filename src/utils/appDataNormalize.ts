@@ -18,7 +18,7 @@ export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: strin
 
 /** Name used for Asim baseline (عاصم). */
 const ASIM_NAME = 'عاصم';
-const ASIM_BASELINE_WINS = 2;
+const ASIM_BASELINE_WINS = 3;
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time Asim legacy baseline.
@@ -31,9 +31,12 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
 
   if (!legacy || typeof legacy !== 'object') legacy = {};
   const asimPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === ASIM_NAME);
-  if (asimPlayer && legacy[asimPlayer.id] === undefined) {
-    legacy = { ...legacy, [asimPlayer.id]: ASIM_BASELINE_WINS };
-    dataVersion = dataVersion + 1;
+  if (asimPlayer) {
+    const current = legacy[asimPlayer.id];
+    if (current === undefined || current === 2) {
+      legacy = { ...legacy, [asimPlayer.id]: ASIM_BASELINE_WINS };
+      if (current !== ASIM_BASELINE_WINS) dataVersion = dataVersion + 1;
+    }
   }
 
   return {
