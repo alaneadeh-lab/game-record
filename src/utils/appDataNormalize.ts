@@ -35,7 +35,7 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
     const current = legacy[asimPlayer.id];
     if (current === undefined || current === 2) {
       legacy = { ...legacy, [asimPlayer.id]: ASIM_BASELINE_WINS };
-      if (current !== ASIM_BASELINE_WINS) dataVersion = dataVersion + 1;
+      dataVersion = dataVersion + 1;
     }
   }
 
