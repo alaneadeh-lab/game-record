@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import type { Player, PlayerSet } from '../types';
 
@@ -9,7 +9,7 @@ interface SetManagerModalProps {
   onSetChange: (index: number) => void;
   onReorderSets: (newSets: PlayerSet[]) => void;
   onCreateSet: () => void;
-  onDeleteSet: () => void;
+  onDeleteSets: (setIds: string[]) => void;
   onClose: () => void;
 }
 
@@ -20,9 +20,11 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
   onSetChange,
   onReorderSets,
   onCreateSet,
-  onDeleteSet,
+  onDeleteSets,
   onClose,
 }) => {
+  const [selectedSetIds, setSelectedSetIds] = useState<Set<string>>(new Set());
+
   const getPlayerNames = (playerIds: string[]) => {
     return playerIds
       .map(id => allPlayers.find(p => p.id === id)?.name)
@@ -36,6 +38,61 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
     newSets.splice(toIndex, 0, movedSet);
     onReorderSets(newSets);
   };
+
+  const toggleSetSelection = (setId: string) => {
+    setSelectedSetIds(prev => {
+      const next = new Set(prev);
+      if (next.has(setId)) {
+        next.delete(setId);
+      } else {
+        next.add(setId);
+      }
+      return next;
+    });
+  };
+
+  const allButOneSelected =
+    playerSets.length > 1 && selectedSetIds.size === playerSets.length - 1;
+
+  const toggleSelectAll = () => {
+    if (allButOneSelected) {
+      setSelectedSetIds(new Set());
+      return;
+    }
+    // Keep at least one set (prefer keeping the current set)
+    setSelectedSetIds(
+      new Set(playerSets.filter((_, i) => i !== currentSetIndex).map(s => s.id))
+    );
+  };
+
+  const handleDeleteSelected = () => {
+    const ids = Array.from(selectedSetIds);
+    if (ids.length === 0) return;
+
+    if (ids.length >= playerSets.length) {
+      alert('Cannot delete all sets. You must keep at least one set.');
+      return;
+    }
+
+    const names = ids
+      .map(id => {
+        const set = playerSets.find(s => s.id === id);
+        return set ? (getPlayerNames(set.playerIds) || set.name || 'Empty Set') : null;
+      })
+      .filter(Boolean);
+
+    const label =
+      ids.length === 1
+        ? `"${names[0]}"`
+        : `${ids.length} sets (${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''})`;
+
+    if (confirm(`Delete ${label}? This cannot be undone.`)) {
+      onDeleteSets(ids);
+      onClose();
+    }
+  };
+
+  const canDelete = selectedSetIds.size > 0 && selectedSetIds.size < playerSets.length;
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end justify-center z-50">
@@ -60,9 +117,35 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
           ➕ Create New Set
         </button>
 
+        {playerSets.length > 1 && (
+          <div className="flex items-center justify-between px-1">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allButOneSelected}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              Select all
+            </label>
+            {selectedSetIds.size > 0 && (
+              <span className="text-sm text-gray-500">{selectedSetIds.size} selected</span>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2 max-h-[50vh] overflow-y-auto">
           {playerSets.map((set, index) => (
             <div key={set.id} className="flex items-center gap-2">
+              {playerSets.length > 1 && (
+                <input
+                  type="checkbox"
+                  checked={selectedSetIds.has(set.id)}
+                  onChange={() => toggleSetSelection(set.id)}
+                  className="w-5 h-5 rounded border-gray-300 shrink-0"
+                  aria-label={`Select ${getPlayerNames(set.playerIds) || set.name || 'set'}`}
+                />
+              )}
               <div className="flex flex-col gap-1">
                 <button
                   onClick={() => index > 0 && moveSet(index, index - 1)}
@@ -99,17 +182,12 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
           ))}
         </div>
 
-        {playerSets.length > 1 && (
+        {canDelete && (
           <button
-            onClick={() => {
-              if (confirm(`Delete "${playerSets[currentSetIndex].name}"? This cannot be undone.`)) {
-                onDeleteSet();
-                onClose();
-              }
-            }}
+            onClick={handleDeleteSelected}
             className="menu-btn danger w-full py-3 rounded-xl font-bold text-center bg-red-500 text-white hover:bg-red-600 transition-colors"
           >
-            🗑️ Delete Current Set
+            🗑️ Delete Selected ({selectedSetIds.size})
           </button>
         )}
 
@@ -123,4 +201,3 @@ export const SetManagerModal: React.FC<SetManagerModalProps> = ({
     </div>
   );
 };
-

@@ -17,7 +17,7 @@ interface AdminPanelProps {
   onAddNewSet?: () => void;
   onOpenPlayerInventory: () => void;
   onSetChange: (index: number) => void;
-  onDeleteSet: () => void;
+  onDeleteSets: (setIds: string[]) => void;
   onReorderSets: (newSets: PlayerSet[]) => void;
   onRestoreFromMongo?: () => void;
   onDeleteGameEntry?: (setId: string, entryId: string) => void | Promise<void>;
@@ -34,7 +34,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddNewSet,
   onOpenPlayerInventory,
   onSetChange,
-  onDeleteSet,
+  onDeleteSets,
   onReorderSets,
   onRestoreFromMongo,
   onDeleteGameEntry,
@@ -390,9 +390,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             setShowSetManager(false);
             if (onAddNewSet) onAddNewSet();
           }}
-          onDeleteSet={() => {
+          onDeleteSets={(setIds) => {
             setShowSetManager(false);
-            onDeleteSet();
+            onDeleteSets(setIds);
           }}
           onClose={() => setShowSetManager(false)}
         />

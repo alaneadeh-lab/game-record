@@ -16,11 +16,11 @@ export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: strin
   };
 }
 
-/** Legacy baseline names and star counts (applied once when undefined). */
+/** Legacy baseline names and star counts. */
 const ASIM_NAME = 'عاصم';
-const ASIM_BASELINE_WINS = 3;
+const ASIM_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
-const JAFAR_BASELINE_WINS = 1;
+const JAFAR_BASELINE_WINS = 2;
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time legacy baselines.
@@ -35,15 +35,20 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
   const asimPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === ASIM_NAME);
   if (asimPlayer) {
     const current = legacy[asimPlayer.id];
-    if (current === undefined || current === 2) {
+    // Bump from previous baselines (2 or 3) or set if missing
+    if (current === undefined || current < ASIM_BASELINE_WINS) {
       legacy = { ...legacy, [asimPlayer.id]: ASIM_BASELINE_WINS };
       dataVersion = dataVersion + 1;
     }
   }
   const jafarPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === JAFAR_NAME);
-  if (jafarPlayer && legacy[jafarPlayer.id] === undefined) {
-    legacy = { ...legacy, [jafarPlayer.id]: JAFAR_BASELINE_WINS };
-    dataVersion = dataVersion + 1;
+  if (jafarPlayer) {
+    const current = legacy[jafarPlayer.id];
+    // Bump from previous baseline (1) or set if missing
+    if (current === undefined || current < JAFAR_BASELINE_WINS) {
+      legacy = { ...legacy, [jafarPlayer.id]: JAFAR_BASELINE_WINS };
+      dataVersion = dataVersion + 1;
+    }
   }
 
   return {

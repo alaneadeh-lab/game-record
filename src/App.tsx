@@ -662,50 +662,45 @@ function App() {
     setShowNewSetSelector(true);
   }, [allPlayers]);
 
-  const handleDeleteSet = useCallback(async () => {
-    if (playerSets.length <= 1) {
-      alert('Cannot delete the last set. You must have at least one set.');
+  const handleDeleteSets = useCallback(async (setIds: string[]) => {
+    const idsToDelete = Array.from(new Set(setIds)).filter(id =>
+      playerSets.some(set => set.id === id)
+    );
+
+    if (idsToDelete.length === 0) return;
+
+    if (idsToDelete.length >= playerSets.length) {
+      alert('Cannot delete all sets. You must keep at least one set.');
       return;
     }
-    
-    const setToDelete = playerSets[currentSetIndex];
-    if (!setToDelete) return;
-    
-    // Store before state for diagnostics
+
     const beforeDeletedSetIdsLength = deletedSetIds.length;
-    
-    // Remove from visible sets
-    const newSets = playerSets.filter((_, index) => index !== currentSetIndex);
+    const deleteIdSet = new Set(idsToDelete);
+    const currentSetId = playerSets[currentSetIndex]?.id;
+
+    const newSets = playerSets.filter(set => !deleteIdSet.has(set.id));
     setPlayerSets(newSets);
-    
-    // Adjust current index if needed
-    if (currentSetIndex >= newSets.length) {
-      setCurrentSetIndex(newSets.length - 1);
+
+    if (currentSetId && deleteIdSet.has(currentSetId)) {
+      setCurrentSetIndex(0);
+    } else if (currentSetId) {
+      const newIndex = newSets.findIndex(set => set.id === currentSetId);
+      setCurrentSetIndex(newIndex === -1 ? 0 : newIndex);
     }
-    
-    // Track deletion in deletedSetIds
-    let updatedDeletedSetIds: string[];
-    if (deletedSetIds.includes(setToDelete.id)) {
-      updatedDeletedSetIds = deletedSetIds; // Already deleted
-    } else {
-      updatedDeletedSetIds = [...deletedSetIds, setToDelete.id];
-    }
+
+    const updatedDeletedSetIds = Array.from(new Set([...deletedSetIds, ...idsToDelete]));
     setDeletedSetIds(updatedDeletedSetIds);
-    
-    // Increment dataVersion to prevent stale saves
+
     const newDataVersion = dataVersion + 1;
     setDataVersion(newDataVersion);
-    
-    console.log('🗑️ [DELETE] Set marked for deletion:', {
-      deletedSetId: setToDelete.id,
-      deletedSetName: setToDelete.name,
-      beforeDeletedSetIdsLength: beforeDeletedSetIdsLength,
+
+    console.log('🗑️ [DELETE] Sets marked for deletion:', {
+      deletedSetIds: idsToDelete,
+      beforeDeletedSetIdsLength,
       afterDeletedSetIdsLength: updatedDeletedSetIds.length,
       outgoingDataVersion: newDataVersion,
-      deletedSetIds: updatedDeletedSetIds.slice(0, 5), // First 5 for diagnostics
     });
-    
-    // Immediately save with updated data
+
     try {
       const normalizedSets: PlayerSet[] = newSets.map(set => ({
         id: set.id,
@@ -713,7 +708,7 @@ function App() {
         playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
         gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
       }));
-      
+
       const appData: AppData = {
         allPlayers,
         sets: normalizedSets,
@@ -721,27 +716,23 @@ function App() {
         dataVersion: newDataVersion,
         legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
       };
-      
+
       const saveResult = await storageService.saveAppData(appData);
-      
+
       if (!saveResult.ok && saveResult.code === 'stale_write_rejected') {
         console.warn('🔄 [RETRY] Stale write on delete, refetching and retrying...');
-        
-        // Refetch latest data
+
         const freshData = await storageService.loadAppData();
-        
-        // Merge: union deletedSetIds, use higher version
+
         const mergedDeletedSetIds = Array.from(new Set([...updatedDeletedSetIds, ...(freshData.deletedSetIds || [])]));
         const mergedDataVersion = Math.max(freshData.dataVersion || 0, newDataVersion) + 1;
-        
-        // Update state with fresh data but preserve our deletion
+
         setAllPlayers(freshData.allPlayers);
         setPlayerSets(freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)));
         setDeletedSetIds(mergedDeletedSetIds);
         setDataVersion(mergedDataVersion);
         setLegacySetWinsByPlayerId(freshData.legacySetWinsByPlayerId ?? {});
-        
-        // Retry save with merged data
+
         const retryAppData: AppData = {
           allPlayers: freshData.allPlayers,
           sets: freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)),
@@ -749,9 +740,9 @@ function App() {
           dataVersion: mergedDataVersion,
           legacySetWinsByPlayerId: freshData.legacySetWinsByPlayerId,
         };
-        
+
         const retryResult = await storageService.saveAppData(retryAppData);
-        
+
         if (!retryResult.ok) {
           console.error('❌ [DELETE] Retry save failed:', retryResult);
           alert('⚠️ Save conflict. Please refresh the page.');
@@ -768,7 +759,7 @@ function App() {
       console.error('❌ [DELETE] Error during save:', error);
       alert('Failed to save deletion. Please try again.');
     }
-  }, [currentSetIndex, playerSets, deletedSetIds, dataVersion, allPlayers]);
+  }, [currentSetIndex, playerSets, deletedSetIds, dataVersion, allPlayers, legacySetWinsByPlayerId]);
 
   const handleReorderSets = useCallback((newSets: PlayerSet[]) => {
     setPlayerSets(newSets);
@@ -1132,7 +1123,7 @@ function App() {
               setShowPlayerInventory(true);
             }}
             onSetChange={handleSetChange}
-            onDeleteSet={handleDeleteSet}
+            onDeleteSets={handleDeleteSets}
             onReorderSets={handleReorderSets}
             onDeleteGameEntry={handleDeleteGameEntry}
           />
@@ -1269,7 +1260,7 @@ function App() {
             setShowPlayerInventory(true);
           }}
             onSetChange={handleSetChange}
-            onDeleteSet={handleDeleteSet}
+            onDeleteSets={handleDeleteSets}
             onReorderSets={handleReorderSets}
             onDeleteGameEntry={handleDeleteGameEntry}
         />
@@ -1284,7 +1275,7 @@ function App() {
           onSetChange={handleSetChange}
           onReorderSets={handleReorderSets}
           onCreateSet={handleCreateSet}
-          onDeleteSet={handleDeleteSet}
+          onDeleteSets={handleDeleteSets}
           onClose={() => setShowSetMenu(false)}
         />
       )}
