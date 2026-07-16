@@ -1,6 +1,6 @@
 import type { AppData, PlayerSet } from '../types';
 import type { IStorageService } from './storageService';
-import { normalizeAppDataOnLoad } from '../utils/appDataNormalize';
+import { normalizeAppDataOnLoad, normalizeRoundsPerGame } from '../utils/appDataNormalize';
 
 /**
  * MongoDB storage service implementation
@@ -74,6 +74,7 @@ class MongoDBService implements IStorageService {
           ? Math.floor(set.winScoreLimit)
           : 50,
         winScoreLabel: set.winScoreLabel,
+        roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
       }));
       
       // Ensure allPlayers is an array
@@ -163,6 +164,7 @@ class MongoDBService implements IStorageService {
             ? Math.floor(set.winScoreLimit)
             : 50,
           winScoreLabel: set.winScoreLabel,
+          roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
         })),
         deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
         dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,

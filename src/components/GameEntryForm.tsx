@@ -62,7 +62,10 @@ export const GameEntryForm: React.FC<GameEntryFormProps> = ({
       score: scores[player.id]?.score ?? 0,
       fatt: scores[player.id]?.fatt ?? 0,
     }));
-    onSave({ playerScores });
+    onSave({
+      playerScores,
+      ...(editingEntry?.rounds ? { rounds: editingEntry.rounds } : {}),
+    });
   };
 
   const handleKeypadChange = (value: number) => {

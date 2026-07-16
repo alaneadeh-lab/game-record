@@ -5,12 +5,17 @@ import { AdminPanel } from './components/AdminPanel';
 import { SetManagerModal } from './components/SetManagerModal';
 import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
-import { GameEntryForm } from './components/GameEntryForm';
+import { RoundGameEntryForm } from './components/RoundGameEntryForm';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
-import { calculatePlayerStatsForSet, getWinScoreLimit } from './utils/gameLogic';
+import {
+  calculatePlayerStatsForSet,
+  getSetWinsByPlayerId,
+  getWinScoreLimit,
+} from './utils/gameLogic';
 import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/dataRecovery';
-import type { PlayerSet, Player, AppData, GameEntry } from './types';
+import type { PlayerSet, Player, AppData, GameEntry, GameRound } from './types';
 import { v4 as uuidv4 } from 'uuid';
+import { normalizeRoundsPerGame } from './utils/appDataNormalize';
 
 function App() {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
@@ -25,6 +30,8 @@ function App() {
   const [showNewSetSelector, setShowNewSetSelector] = useState(false);
   const [showSetMenu, setShowSetMenu] = useState(false);
   const [showGameForm, setShowGameForm] = useState(false);
+  const [editingGameEntryId, setEditingGameEntryId] = useState<string | null>(null);
+  const [gameDraftsBySetId, setGameDraftsBySetId] = useState<Record<string, GameRound[]>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [storageStatus, setStorageStatus] = useState<ReturnType<typeof checkLocalStorageStatus> | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
@@ -216,6 +223,7 @@ function App() {
             playerIds: defaultPlayers.map(p => p.id),
             gameEntries: [],
             winScoreLimit: 50,
+            roundsPerGame: 5,
           };
 
           setAllPlayers(defaultPlayers);
@@ -244,6 +252,7 @@ function App() {
               ? Math.floor(set.winScoreLimit)
               : 50,
             winScoreLabel: set.winScoreLabel,
+            roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
           }));
           
           // Load deletedSetIds, dataVersion, legacySetWinsByPlayerId
@@ -341,10 +350,11 @@ function App() {
             playerIds: appData.allPlayers.slice(0, 4).map(p => p.id),
             gameEntries: [],
             winScoreLimit: 50,
+            roundsPerGame: 5,
           };
             setPlayerSets([defaultSet]);
           } else {
-            setPlayerSets(appData.sets);
+            setPlayerSets(filteredSets);
           }
         }
       } catch (error) {
@@ -366,6 +376,7 @@ function App() {
           playerIds: defaultPlayers.map(p => p.id),
           gameEntries: [],
           winScoreLimit: 50,
+          roundsPerGame: 5,
         };
         setAllPlayers(defaultPlayers);
         setPlayerSets([defaultSet]);
@@ -771,7 +782,11 @@ function App() {
     }
   }, [currentSetIndex, playerSets]);
 
-  const handleSaveNewSet = useCallback((playerIds: string[], winScoreLimit?: number) => {
+  const handleSaveNewSet = useCallback((
+    playerIds: string[],
+    winScoreLimit?: number,
+    roundsPerGame?: 3 | 5 | 7 | 9
+  ) => {
     setPlayerSets((prev) => {
       const limit = typeof winScoreLimit === 'number' && winScoreLimit >= 1 && winScoreLimit <= 9999
         ? Math.floor(winScoreLimit)
@@ -782,6 +797,7 @@ function App() {
         playerIds,
         gameEntries: [],
         winScoreLimit: limit,
+        roundsPerGame: normalizeRoundsPerGame(roundsPerGame),
       };
       const newSets = [...prev, newSet];
       setCurrentSetIndex(newSets.length - 1);
@@ -797,8 +813,32 @@ function App() {
     }
   }, [playerSets.length]);
 
-  // Stars: legacy only for now (Asim +2); no computed set wins
-  const totalStarsByPlayerId = useMemo(() => ({ ...legacySetWinsByPlayerId }), [legacySetWinsByPlayerId]);
+  const totalStarsByPlayerId = useMemo(() => {
+    const computedSetWins = getSetWinsByPlayerId({
+      allPlayers,
+      sets: playerSets,
+    });
+    const totals = { ...legacySetWinsByPlayerId };
+    for (const [playerId, wins] of Object.entries(computedSetWins)) {
+      totals[playerId] = (totals[playerId] ?? 0) + wins;
+    }
+    return totals;
+  }, [allPlayers, playerSets, legacySetWinsByPlayerId]);
+
+  const allTimeFattsByPlayerId = useMemo(() => {
+    const totals = Object.fromEntries(allPlayers.map((player) => [player.id, 0])) as Record<
+      string,
+      number
+    >;
+    for (const set of playerSets) {
+      for (const game of set.gameEntries) {
+        for (const score of game.playerScores) {
+          totals[score.playerId] = (totals[score.playerId] ?? 0) + (score.fatt ?? 0);
+        }
+      }
+    }
+    return totals;
+  }, [allPlayers, playerSets]);
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -940,6 +980,23 @@ function App() {
     const set = playerSets[currentSetIndex];
     if (!set) return;
 
+    if (editingGameEntryId) {
+      const existingEntry = set.gameEntries.find((entry) => entry.id === editingGameEntryId);
+      if (!existingEntry) return;
+      handleUpdateSet({
+        ...set,
+        gameEntries: set.gameEntries.map((entry) =>
+          entry.id === editingGameEntryId
+            ? { ...entryData, id: existingEntry.id, date: existingEntry.date }
+            : entry
+        ),
+      });
+      setDataVersion((previous) => previous + 1);
+      setEditingGameEntryId(null);
+      setShowGameForm(false);
+      return;
+    }
+
     const newEntry: GameEntry = {
       ...entryData,
       id: Date.now().toString(),
@@ -973,7 +1030,12 @@ function App() {
     setDataVersion(prev => prev + 1);
 
     setShowGameForm(false);
-  }, [currentSetIndex, playerSets, handleUpdateSet]);
+    setGameDraftsBySetId((previous) => {
+      const next = { ...previous };
+      delete next[set.id];
+      return next;
+    });
+  }, [currentSetIndex, playerSets, handleUpdateSet, editingGameEntryId]);
 
   const handleAdminClick = () => {
     if (showAdmin) {
@@ -984,6 +1046,16 @@ function App() {
   };
 
   const handleAddGameClick = () => {
+    setEditingGameEntryId(null);
+    setShowGameForm(true);
+  };
+
+  const handleEditGameClick = (entry: GameEntry) => {
+    if (!entry.rounds?.length) {
+      alert('This legacy game has no round details. It can still be edited from Admin.');
+      return;
+    }
+    setEditingGameEntryId(entry.id);
     setShowGameForm(true);
   };
 
@@ -1110,6 +1182,7 @@ function App() {
               playerIds: allPlayers.slice(0, 4).map(p => p.id),
               gameEntries: [],
               winScoreLimit: 50,
+              roundsPerGame: 5,
             }}
             allPlayers={allPlayers}
             playerSets={playerSets}
@@ -1229,6 +1302,8 @@ function App() {
           title="Create New Set"
           showWinLimit
           defaultWinScoreLimit={50}
+          showRoundsPerGame
+          defaultRoundsPerGame={5}
         />
       )}
 
@@ -1335,6 +1410,22 @@ function App() {
             {/* Render all sets in a horizontal row */}
             {playerSets.map((set, index) => {
               const offset = (index - currentSetIndex) * 100;
+              const currentGameRounds = gameDraftsBySetId[set.id] ?? [];
+              const displayedPlayers = calculatePlayerStatsForSet(
+                set.playerIds,
+                allPlayers,
+                set.gameEntries
+              ).map((player) => ({
+                ...player,
+                fatts:
+                  player.fatts +
+                  currentGameRounds.reduce(
+                    (total, round) =>
+                      total +
+                      (round.playerScores.find((score) => score.playerId === player.id)?.fatt ?? 0),
+                    0
+                  ),
+              }));
               return (
                 <div
                   key={set.id}
@@ -1356,11 +1447,16 @@ function App() {
                     className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
                   >
                     <PlayersView 
-                      players={calculatePlayerStatsForSet(set.playerIds, allPlayers, set.gameEntries)} 
+                      players={displayedPlayers}
                       gameEntries={set.gameEntries}
                       winScoreLimit={getWinScoreLimit(set)}
                       totalStarsByPlayerId={totalStarsByPlayerId}
+                      allTimeFattsByPlayerId={allTimeFattsByPlayerId}
                       onAddGameClick={handleAddGameClick}
+                      currentGameRounds={currentGameRounds}
+                      roundsPerGame={normalizeRoundsPerGame(set.roundsPerGame)}
+                      onCurrentGameClick={handleAddGameClick}
+                      onEditGameClick={handleEditGameClick}
                       onAdminClick={handleAdminClick}
                     />
                   </div>
@@ -1373,28 +1469,31 @@ function App() {
 
       {/* Game Entry Form Modal */}
       {showGameForm && currentSet && !showAdmin && (
-        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm pointer-events-auto overflow-y-auto">
-          <div className="relative z-50 min-h-full bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 p-4">
-            <div className="max-w-2xl mx-auto">
-              <div className="bg-white rounded-2xl p-6 shadow-3d">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">Add New Game</h2>
-      <button
-                    onClick={() => setShowGameForm(false)}
-                    className="button-3d p-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
-      >
-                    <span className="text-xl">✕</span>
-      </button>
-                </div>
-                <GameEntryForm
-                  players={resolvePlayers(currentSet.playerIds)}
-                  onSave={handleSaveGameFromMain}
-                  onCancel={() => setShowGameForm(false)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <RoundGameEntryForm
+          players={resolvePlayers(currentSet.playerIds)}
+          roundsPerGame={normalizeRoundsPerGame(currentSet.roundsPerGame)}
+          gameNumber={
+            editingGameEntryId
+              ? currentSet.gameEntries.findIndex((entry) => entry.id === editingGameEntryId) + 1
+              : currentSet.gameEntries.length + 1
+          }
+          initialRounds={
+            editingGameEntryId
+              ? currentSet.gameEntries.find((entry) => entry.id === editingGameEntryId)?.rounds ?? []
+              : gameDraftsBySetId[currentSet.id] ?? []
+          }
+          onDraftChange={
+            editingGameEntryId
+              ? undefined
+              : (rounds: GameRound[]) =>
+                  setGameDraftsBySetId((previous) => ({ ...previous, [currentSet.id]: rounds }))
+          }
+          onSave={handleSaveGameFromMain}
+          onCancel={() => {
+            setShowGameForm(false);
+            setEditingGameEntryId(null);
+          }}
+        />
       )}
 
       {/* Floating Quick Add Game Button */}

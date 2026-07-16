@@ -1,6 +1,14 @@
 import type { AppData, PlayerSet } from '../types';
 import { DEFAULT_WIN_SCORE_LIMIT } from './gameLogic';
 
+export const DEFAULT_ROUNDS_PER_GAME = 5;
+
+export function normalizeRoundsPerGame(value: unknown): 3 | 5 | 7 | 9 {
+  return value === 3 || value === 5 || value === 7 || value === 9
+    ? value
+    : DEFAULT_ROUNDS_PER_GAME;
+}
+
 /** Normalize a single set: ensure winScoreLimit in 1–9999, default 50. */
 export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: string }): PlayerSet {
   const n = set.winScoreLimit;
@@ -13,6 +21,7 @@ export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: strin
     gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
     winScoreLimit,
     winScoreLabel: set.winScoreLabel,
+    roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
   };
 }
 
@@ -20,7 +29,8 @@ export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: strin
 const ASIM_NAME = 'عاصم';
 const ASIM_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
-const JAFAR_BASELINE_WINS = 2;
+const JAFAR_BASELINE_WINS = 1;
+const JAFAR_PREVIOUS_BASELINE_WINS = 2;
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time legacy baselines.
@@ -44,8 +54,12 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
   const jafarPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === JAFAR_NAME);
   if (jafarPlayer) {
     const current = legacy[jafarPlayer.id];
-    // Bump from previous baseline (1) or set if missing
-    if (current === undefined || current < JAFAR_BASELINE_WINS) {
+    // Reduce from previous baseline (2 → 1), or set if missing / below target
+    if (
+      current === undefined ||
+      current === JAFAR_PREVIOUS_BASELINE_WINS ||
+      current < JAFAR_BASELINE_WINS
+    ) {
       legacy = { ...legacy, [jafarPlayer.id]: JAFAR_BASELINE_WINS };
       dataVersion = dataVersion + 1;
     }

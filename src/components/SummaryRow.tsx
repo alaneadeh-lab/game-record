@@ -14,6 +14,7 @@ interface SummaryRowProps {
   title: string;
   /** Win limit for this set (منصة التتويج only). */
   winScoreLimit?: number;
+  allTimeFattsByPlayerId?: Record<string, number>;
 }
 
 export const SummaryRow: React.FC<SummaryRowProps> = ({
@@ -21,11 +22,21 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
   type,
   title,
   winScoreLimit,
+  allTimeFattsByPlayerId = {},
 }) => {
   const isPoints = type === 'points';
+  const [showAllTimeFatts, setShowAllTimeFatts] = useState(false);
+
+  useEffect(() => {
+    if (!showAllTimeFatts) return;
+    const timeoutId = setTimeout(() => setShowAllTimeFatts(false), 5000);
+    return () => clearTimeout(timeoutId);
+  }, [showAllTimeFatts]);
   
   // Find the fatt leader (only for fatts row)
-  const maxFatt = !isPoints ? Math.max(...players.map(p => p.fatts)) : 0;
+  const getFattValue = (player: Player) =>
+    showAllTimeFatts ? allTimeFattsByPlayerId[player.id] ?? 0 : player.fatts;
+  const maxFatt = !isPoints ? Math.max(...players.map(getFattValue)) : 0;
   
   // Get player ranks (only needed for points row to show crown/fly animations)
   const ranks = isPoints ? getPlayerRank(players) : {};
@@ -76,6 +87,20 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
           حد الفوز: {winScoreLimit}
         </div>
       )}
+      {!isPoints && (
+        <button
+          type="button"
+          onClick={() => setShowAllTimeFatts((value) => !value)}
+          className={`absolute left-2 top-2 rounded-lg px-2 py-1 text-[10px] font-bold transition sm:left-3 sm:top-3 sm:text-xs ${
+            showAllTimeFatts
+              ? 'bg-purple-600 text-white'
+              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+          }`}
+          aria-pressed={showAllTimeFatts}
+        >
+          {showAllTimeFatts ? 'Current Set' : 'All Time'}
+        </button>
+      )}
       <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-center text-gray-800 flex items-center justify-center gap-2">
         <span className="text-2xl sm:text-3xl">{isPoints ? '🥇' : '😂'}</span>
         <span 
@@ -90,8 +115,8 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
       </h3>
       <div className="grid grid-cols-4 gap-3 sm:gap-4">
         {players.map((player) => {
-          const value = isPoints ? calculateMedalPoints(player) : player.fatts;
-          const isFattLeader = !isPoints && maxFatt > 0 && player.fatts === maxFatt;
+          const value = isPoints ? calculateMedalPoints(player) : getFattValue(player);
+          const isFattLeader = !isPoints && maxFatt > 0 && value === maxFatt;
           const playerRank = isPoints ? ranks[player.id] : 0;
           const isFirstPlace = isPoints && playerRank === 1;
           const isLastPlace = isPoints && playerRank === 4;

@@ -6,12 +6,14 @@ interface GamesHistoryTableProps {
   players: Player[];
   /** Order of player columns (leaderboard order: highest to lowest). */
   leaderboardPlayerIds?: string[];
+  onGameClick?: (game: GameEntry) => void;
 }
 
 export const GamesHistoryTable: React.FC<GamesHistoryTableProps> = ({
   gameEntries,
   players,
   leaderboardPlayerIds,
+  onGameClick,
 }) => {
   const orderedPlayers =
     leaderboardPlayerIds && leaderboardPlayerIds.length > 0
@@ -70,7 +72,18 @@ export const GamesHistoryTable: React.FC<GamesHistoryTableProps> = ({
               return (
                 <tr
                   key={game.id}
-                  className="border-b border-gray-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent transition-colors duration-200"
+                  onClick={() => onGameClick?.(game)}
+                  onKeyDown={(event) => {
+                    if (!onGameClick || (event.key !== 'Enter' && event.key !== ' ')) return;
+                    event.preventDefault();
+                    onGameClick(game);
+                  }}
+                  tabIndex={onGameClick ? 0 : undefined}
+                  role={onGameClick ? 'button' : undefined}
+                  aria-label={onGameClick ? `Edit game from ${formatDate(game.date)}` : undefined}
+                  className={`border-b border-gray-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent transition-colors duration-200 ${
+                    onGameClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500' : ''
+                  }`}
                 >
                   <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-600 max-[500px]:text-xs max-[500px]:px-2">
                     {formatDate(game.date)}

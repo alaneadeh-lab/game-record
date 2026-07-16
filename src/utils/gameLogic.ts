@@ -241,29 +241,10 @@ export function calculatePlayerStatsForSet(
 }
 
 /**
- * Total cumulative score per player in a set (sum of all gameEntries playerScores.score).
- */
-function getSetTotalScoresByPlayer(
-  playerIds: string[],
-  gameEntries: GameEntry[]
-): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const id of playerIds) totals[id] = 0;
-  for (const entry of gameEntries) {
-    for (const ps of entry.playerScores) {
-      if (totals[ps.playerId] !== undefined) {
-        totals[ps.playerId] = (totals[ps.playerId] ?? 0) + ps.score;
-      }
-    }
-  }
-  return totals;
-}
-
-/**
- * Set wins per player across all sets. Uses only score (not fatt).
- * Empty set (no gameEntries) -> skip, no winner.
- * Winner = reached the set's winning score: total cumulative score >= set's winScoreLimit.
- * Only players who reached the win limit get a star for that set.
+ * Set wins per player across all sets.
+ * Each game awards podium points (3 gold, 2 silver, 1 bronze).
+ * Once the leading player reaches the set's win limit, they earn one star.
+ * Derived results prevent duplicate stars after reloads or game edits.
  */
 export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
   const wins: Record<string, number> = {};
@@ -273,8 +254,20 @@ export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
     if (gameEntries.length === 0) continue; // no games -> no winner for this set
     const winLimit = getWinScoreLimit(set);
     const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
-    const totals = getSetTotalScoresByPlayer(playerIds, gameEntries);
-    const winnerIds = playerIds.filter(id => (totals[id] ?? 0) >= winLimit);
+    const podiumPoints = Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<string, number>;
+
+    for (const game of gameEntries) {
+      const rankedScores = [...game.playerScores]
+        .filter((score) => playerIds.includes(score.playerId))
+        .sort((a, b) => a.score - b.score);
+      if (rankedScores[0]) podiumPoints[rankedScores[0].playerId] += 3;
+      if (rankedScores[1]) podiumPoints[rankedScores[1].playerId] += 2;
+      if (rankedScores[2]) podiumPoints[rankedScores[2].playerId] += 1;
+    }
+
+    const leadingPoints = Math.max(0, ...Object.values(podiumPoints));
+    if (leadingPoints < winLimit) continue;
+    const winnerIds = playerIds.filter((id) => podiumPoints[id] === leadingPoints);
     for (const id of winnerIds) {
       wins[id] = (wins[id] ?? 0) + 1;
     }

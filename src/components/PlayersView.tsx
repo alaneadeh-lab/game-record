@@ -5,15 +5,21 @@ import { SummaryRow } from './SummaryRow';
 import { MedalsTable } from './MedalsTable';
 import { GamesHistoryTable } from './GamesHistoryTable';
 import { NewThemeLeaderboard } from './NewThemeLeaderboard';
+import { CurrentGameTotals } from './CurrentGameTotals';
 import { getPlayerRank } from '../utils/gameLogic';
-import type { Player, GameEntry } from '../types';
+import type { Player, GameEntry, GameRound } from '../types';
 
 interface PlayersViewProps {
   players: Player[];
   gameEntries?: GameEntry[];
   winScoreLimit?: number;
   totalStarsByPlayerId?: Record<string, number>;
+  allTimeFattsByPlayerId?: Record<string, number>;
   onAddGameClick?: () => void;
+  currentGameRounds?: GameRound[];
+  roundsPerGame?: number;
+  onCurrentGameClick?: () => void;
+  onEditGameClick?: (game: GameEntry) => void;
   onAdminClick?: () => void;
   theme?: 'default' | 'new';
   onThemeChange?: (theme: 'default' | 'new') => void;
@@ -24,7 +30,12 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
   gameEntries = [],
   winScoreLimit = 50,
   totalStarsByPlayerId = {},
+  allTimeFattsByPlayerId = {},
   onAddGameClick,
+  currentGameRounds = [],
+  roundsPerGame = 5,
+  onCurrentGameClick,
+  onEditGameClick,
   onAdminClick,
   theme = 'default',
   onThemeChange,
@@ -99,6 +110,9 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           gameEntries={gameEntries}
           winScoreLimit={winScoreLimit}
           leaderboardPlayerIds={leaderboardPlayerIds}
+          currentGameRounds={currentGameRounds}
+          roundsPerGame={roundsPerGame}
+          onCurrentGameClick={onCurrentGameClick}
         />
       </div>
     );
@@ -133,6 +147,29 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
         ))}
       </div>
 
+      <CurrentGameTotals
+        players={sortedPlayers}
+        gameEntries={gameEntries}
+        currentScores={
+          currentGameRounds.length
+            ? players.map((player) => ({
+                playerId: player.id,
+                score: currentGameRounds.reduce(
+                  (total, round) =>
+                    total +
+                    (round.playerScores.find((score) => score.playerId === player.id)?.score ?? 0),
+                  0
+                ),
+              }))
+            : undefined
+        }
+        currentRounds={currentGameRounds.length ? currentGameRounds : undefined}
+        roundsCompleted={currentGameRounds.length || undefined}
+        roundsPerGame={roundsPerGame}
+        onClick={onCurrentGameClick}
+        className="mt-6 flex-shrink-0"
+      />
+
               {/* Points Row - منصة التتويج with win limit badge */}
               <div className="mt-8 flex-shrink-0">
                 <SummaryRow
@@ -145,7 +182,12 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
 
               {/* Fatts Row */}
               <div className="mt-6 flex-shrink-0">
-                <SummaryRow players={sortedPlayers} type="fatts" title="فتّـــة" />
+                <SummaryRow
+                  players={sortedPlayers}
+                  type="fatts"
+                  title="فتّـــة"
+                  allTimeFattsByPlayerId={allTimeFattsByPlayerId}
+                />
               </div>
 
       {/* Medals Table */}
@@ -160,6 +202,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
             gameEntries={gameEntries}
             players={sortedPlayers}
             leaderboardPlayerIds={leaderboardPlayerIds}
+            onGameClick={onEditGameClick}
           />
         </div>
       )}

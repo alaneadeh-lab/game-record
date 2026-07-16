@@ -9,12 +9,14 @@ interface PlayerSetSelectorProps {
   allPlayers: Player[];
   selectedPlayerIds: string[];
   minPlayers?: number;
-  onSave: (playerIds: string[], winScoreLimit?: number) => void;
+  onSave: (playerIds: string[], winScoreLimit?: number, roundsPerGame?: 3 | 5 | 7 | 9) => void;
   onCancel: () => void;
   title?: string;
   /** Show win limit selector (e.g. for Create New Set). */
   showWinLimit?: boolean;
   defaultWinScoreLimit?: number;
+  showRoundsPerGame?: boolean;
+  defaultRoundsPerGame?: 3 | 5 | 7 | 9;
 }
 
 export const PlayerSetSelector: React.FC<PlayerSetSelectorProps> = ({
@@ -26,6 +28,8 @@ export const PlayerSetSelector: React.FC<PlayerSetSelectorProps> = ({
   title = 'Select Players',
   showWinLimit = false,
   defaultWinScoreLimit = 50,
+  showRoundsPerGame = false,
+  defaultRoundsPerGame = 5,
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedPlayerIds);
   const [winLimitPreset, setWinLimitPreset] = useState<'25' | '50' | '100' | 'custom'>(
@@ -34,6 +38,7 @@ export const PlayerSetSelector: React.FC<PlayerSetSelectorProps> = ({
   const [customWinLimit, setCustomWinLimit] = useState<string>(
     [25, 50, 100].includes(defaultWinScoreLimit) ? '' : String(defaultWinScoreLimit)
   );
+  const [roundsPerGame, setRoundsPerGame] = useState<3 | 5 | 7 | 9>(defaultRoundsPerGame);
 
   const togglePlayer = (playerId: string) => {
     setSelectedIds(prev => {
@@ -69,7 +74,7 @@ export const PlayerSetSelector: React.FC<PlayerSetSelectorProps> = ({
       }
     }
     const limit = showWinLimit ? getWinScoreLimit() : undefined;
-    onSave(selectedIds, limit);
+    onSave(selectedIds, limit, showRoundsPerGame ? roundsPerGame : undefined);
   };
 
   return (
@@ -136,6 +141,36 @@ export const PlayerSetSelector: React.FC<PlayerSetSelectorProps> = ({
                 )}
               </div>
             </div>
+          )}
+
+          {showRoundsPerGame && (
+            <fieldset className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <legend className="px-1 text-sm font-semibold text-gray-800">Rounds Per Game</legend>
+              <p className="mb-3 text-xs text-gray-600">Choose how many hand rounds make up each game.</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([3, 5, 7, 9] as const).map((roundCount) => (
+                  <label
+                    key={roundCount}
+                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 font-semibold transition-colors ${
+                      roundsPerGame === roundCount
+                        ? 'border-purple-600 bg-purple-600 text-white'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-purple-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="roundsPerGame"
+                      value={roundCount}
+                      checked={roundsPerGame === roundCount}
+                      onChange={() => setRoundsPerGame(roundCount)}
+                      className="sr-only"
+                    />
+                    <span aria-hidden>{roundsPerGame === roundCount ? '●' : '○'}</span>
+                    {roundCount}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           )}
 
           <div className="space-y-2 mb-6 max-h-[60vh] overflow-y-auto">

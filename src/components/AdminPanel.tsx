@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { X, Plus, Edit2, Trash2, Users, Calendar, Layers } from 'lucide-react';
 import { GameEntryForm } from './GameEntryForm';
+import { RoundGameEntryForm } from './RoundGameEntryForm';
 import { PlayerSetSelector } from './PlayerSetSelector';
 import { SetManagerModal } from './SetManagerModal';
 import type { Player, GameEntry, PlayerSet } from '../types';
+import { normalizeRoundsPerGame } from '../utils/appDataNormalize';
 // Stats are calculated per-set, not stored globally
 
 interface AdminPanelProps {
@@ -194,15 +196,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {(showGameForm || editingGame) && (
                   <div className="relative z-50 pointer-events-auto bg-white rounded-2xl p-6 shadow-3d">
-                    <GameEntryForm
-                      players={setPlayers}
-                      onSave={handleSaveGame}
-                      onCancel={() => {
-                        setShowGameForm(false);
-                        setEditingGame(null);
-                      }}
-                      editingEntry={editingGame || undefined}
-                    />
+                    {editingGame ? (
+                      <GameEntryForm
+                        players={setPlayers}
+                        onSave={handleSaveGame}
+                        onCancel={() => {
+                          setShowGameForm(false);
+                          setEditingGame(null);
+                        }}
+                        editingEntry={editingGame}
+                      />
+                    ) : (
+                      <RoundGameEntryForm
+                        players={setPlayers}
+                        roundsPerGame={normalizeRoundsPerGame(playerSet.roundsPerGame)}
+                        gameNumber={playerSet.gameEntries.length + 1}
+                        onSave={handleSaveGame}
+                        onCancel={() => setShowGameForm(false)}
+                      />
+                    )}
                   </div>
                 )}
 

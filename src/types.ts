@@ -18,6 +18,22 @@ export interface GameEntry {
     score: number;
     fatt: number;
   }[];
+  /** Hand-by-hand data for games created with the round entry workflow. */
+  rounds?: GameRound[];
+}
+
+export type GameWinnerType = 'partial' | 'full';
+
+export interface GameRound {
+  id: string;
+  winnerType: GameWinnerType;
+  /** Selected winner for this hand. */
+  winnerId: string;
+  playerScores: {
+    playerId: string;
+    score: number;
+    fatt: number;
+  }[];
 }
 
 export interface PlayerSet {
@@ -29,6 +45,8 @@ export interface PlayerSet {
   winScoreLimit?: number;
   /** Optional display label (e.g. "حد الفوز") */
   winScoreLabel?: string;
+  /** Number of hand rounds in each game. Defaults to 5 for legacy sets. */
+  roundsPerGame?: 3 | 5 | 7 | 9;
 }
 
 export interface AppData {

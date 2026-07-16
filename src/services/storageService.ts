@@ -1,5 +1,5 @@
 import type { PlayerSet, Player, AppData } from '../types';
-import { normalizeAppDataOnLoad } from '../utils/appDataNormalize';
+import { normalizeAppDataOnLoad, normalizeRoundsPerGame } from '../utils/appDataNormalize';
 
 /**
  * Storage service interface - makes it easy to swap between localStorage and MongoDB
@@ -59,6 +59,7 @@ class LocalStorageService implements IStorageService {
               ? Math.floor(set.winScoreLimit)
               : 50,
             winScoreLabel: set.winScoreLabel,
+            roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
           }));
           
           // Filter deleted sets on load
@@ -118,6 +119,7 @@ class LocalStorageService implements IStorageService {
           ? Math.floor(set.winScoreLimit)
           : 50,
         winScoreLabel: set.winScoreLabel,
+        roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
       })),
       deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
       dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
@@ -201,6 +203,7 @@ class LocalStorageService implements IStorageService {
       name: set.name,
       playerIds: set.players ? set.players.map((p: Player) => p.id) : [],
       gameEntries: set.gameEntries || [],
+      roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
     }));
 
     const migrated: AppData = {
@@ -230,6 +233,7 @@ class LocalStorageService implements IStorageService {
         name: 'Set 1',
         playerIds: defaultPlayers.map(p => p.id),
         gameEntries: [],
+        roundsPerGame: 5,
       }],
     };
   }
@@ -362,4 +366,5 @@ export const getDefaultPlayerSet = (): PlayerSet => ({
   playerIds: ['1', '2', '3', '4'],
   gameEntries: [],
   winScoreLimit: 50,
+  roundsPerGame: 5,
 });

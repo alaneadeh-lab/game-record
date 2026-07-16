@@ -2,20 +2,27 @@ import React from 'react';
 import { PodiumNewTheme } from './PodiumNewTheme';
 import { StatsPanelNewTheme } from './StatsPanelNewTheme';
 import { MedalsTableNewTheme } from './MedalsTableNewTheme';
-import type { Player, GameEntry } from '../types';
+import { CurrentGameTotals } from './CurrentGameTotals';
+import type { Player, GameEntry, GameRound } from '../types';
 
 interface NewThemeLeaderboardProps {
   players: Player[];
   gameEntries?: GameEntry[];
   winScoreLimit?: number;
   leaderboardPlayerIds?: string[];
+  currentGameRounds?: GameRound[];
+  roundsPerGame?: number;
+  onCurrentGameClick?: () => void;
 }
 
 export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
   players,
-  gameEntries: _gameEntries = [],
+  gameEntries = [],
   winScoreLimit = 50,
   leaderboardPlayerIds: _leaderboardPlayerIds = [],
+  currentGameRounds = [],
+  roundsPerGame = 5,
+  onCurrentGameClick,
 }) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#5A00B8] via-[#40009C] to-[#25005F] relative overflow-hidden">
@@ -52,6 +59,29 @@ export const NewThemeLeaderboard: React.FC<NewThemeLeaderboardProps> = ({
         </div>
 
         <PodiumNewTheme players={players} />
+
+        <CurrentGameTotals
+          players={players}
+          gameEntries={gameEntries}
+          currentScores={
+            currentGameRounds.length
+              ? players.map((player) => ({
+                  playerId: player.id,
+                  score: currentGameRounds.reduce(
+                    (total, round) =>
+                      total +
+                      (round.playerScores.find((score) => score.playerId === player.id)?.score ?? 0),
+                    0
+                  ),
+                }))
+              : undefined
+          }
+          currentRounds={currentGameRounds.length ? currentGameRounds : undefined}
+          roundsCompleted={currentGameRounds.length || undefined}
+          roundsPerGame={roundsPerGame}
+          onClick={onCurrentGameClick}
+          className="mt-8 sm:mt-10"
+        />
 
         <div className="mt-8 sm:mt-10">
           <StatsPanelNewTheme players={players} />
