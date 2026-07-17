@@ -27,8 +27,8 @@ export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: strin
 
 /** Legacy baseline names and star counts. */
 const ASIM_NAME = 'عاصم';
-const ASIM_BASELINE_WINS = 4;
-const ASIM_PREVIOUS_BASELINE_WINS = 5;
+const ASIM_BASELINE_WINS = 3;
+const ASIM_PREVIOUS_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
 const JAFAR_BASELINE_WINS = 1;
 const JAFAR_PREVIOUS_BASELINE_WINS = 2;
@@ -46,7 +46,7 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
   const asimPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === ASIM_NAME);
   if (asimPlayer) {
     const current = legacy[asimPlayer.id];
-    // Reduce from previous baseline (5 → 4), or set if missing / below target
+    // Reduce from previous baseline (4 → 3), or set if missing / below target
     if (
       current === undefined ||
       current === ASIM_PREVIOUS_BASELINE_WINS ||
