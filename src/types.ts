@@ -52,6 +52,8 @@ export interface PlayerSet {
 export interface AppData {
   allPlayers: Player[];
   sets: PlayerSet[];
+  /** Completed rounds in games that have not been finished yet, keyed by set ID. */
+  gameDraftsBySetId?: Record<string, GameRound[]>;
   deletedSetIds?: string[]; // Explicitly deleted set IDs (persisted)
   dataVersion?: number; // Monotonically increasing version for stale-save protection
   /** Manual baseline set wins (e.g. pre-app history). Applied once; never double-applied. */

@@ -17,6 +17,24 @@ import type { PlayerSet, Player, AppData, GameEntry, GameRound } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeRoundsPerGame } from './utils/appDataNormalize';
 
+const GAME_DRAFTS_STORAGE_KEY = `game-record-round-drafts:${import.meta.env.VITE_USER_ID || 'default'}`;
+
+function loadStoredGameDrafts(): Record<string, GameRound[]> {
+  try {
+    const stored = localStorage.getItem(GAME_DRAFTS_STORAGE_KEY);
+    if (!stored) return {};
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, rounds]) => Array.isArray(rounds))
+    ) as Record<string, GameRound[]>;
+  } catch (error) {
+    console.warn('Could not restore round drafts from localStorage:', error);
+    return {};
+  }
+}
+
 function App() {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [playerSets, setPlayerSets] = useState<PlayerSet[]>([]);
@@ -31,12 +49,38 @@ function App() {
   const [showSetMenu, setShowSetMenu] = useState(false);
   const [showGameForm, setShowGameForm] = useState(false);
   const [editingGameEntryId, setEditingGameEntryId] = useState<string | null>(null);
-  const [gameDraftsBySetId, setGameDraftsBySetId] = useState<Record<string, GameRound[]>>({});
+  const [gameDraftsBySetId, setGameDraftsBySetId] =
+    useState<Record<string, GameRound[]>>(loadStoredGameDrafts);
+  const pendingFinishedDraftSetIdRef = useRef<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [storageStatus, setStorageStatus] = useState<ReturnType<typeof checkLocalStorageStatus> | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (Object.keys(gameDraftsBySetId).length === 0) {
+        localStorage.removeItem(GAME_DRAFTS_STORAGE_KEY);
+      } else {
+        localStorage.setItem(GAME_DRAFTS_STORAGE_KEY, JSON.stringify(gameDraftsBySetId));
+      }
+    } catch (error) {
+      console.error('Could not persist round drafts to localStorage:', error);
+    }
+  }, [gameDraftsBySetId]);
+
+  const clearFinishedDraftAfterSave = useCallback(() => {
+    const setId = pendingFinishedDraftSetIdRef.current;
+    if (!setId) return;
+    pendingFinishedDraftSetIdRef.current = null;
+    setGameDraftsBySetId((previous) => {
+      const next = { ...previous };
+      delete next[setId];
+      return next;
+    });
+    setDataVersion((previous) => previous + 1);
+  }, []);
 
   // Casino-themed background colors that change with each set
   const casinoColors = [
@@ -280,6 +324,10 @@ function App() {
               ? appData.legacySetWinsByPlayerId
               : {}
           );
+          setGameDraftsBySetId((localDrafts) => ({
+            ...(appData.gameDraftsBySetId ?? {}),
+            ...localDrafts,
+          }));
           
           // Data exists, use it
           const totalGames = filteredSets.reduce((sum: number, set: any) => 
@@ -408,12 +456,14 @@ function App() {
             ? Math.floor(set.winScoreLimit)
             : 50,
           winScoreLabel: set.winScoreLabel,
+          roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
         }));
         
         // Create normalized AppData payload (NO playerSets field)
         const appData: AppData = {
           allPlayers,
           sets: normalizedSets,
+          gameDraftsBySetId,
           deletedSetIds: deletedSetIds,
           dataVersion: dataVersion,
           legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
@@ -486,6 +536,7 @@ function App() {
             }, 100);
           } else {
             setSaveStatus('saved');
+            clearFinishedDraftAfterSave();
             setTimeout(() => setSaveStatus('idle'), 2000);
           }
           return;
@@ -524,6 +575,7 @@ function App() {
           const retryAppData: AppData = {
             allPlayers: freshData.allPlayers,
             sets: mergedSets,
+            gameDraftsBySetId,
             deletedSetIds: mergedDeletedSetIds,
             dataVersion: mergedDataVersion,
           };
@@ -539,6 +591,7 @@ function App() {
           } else {
             console.log('✅ [RETRY] Retry save succeeded');
             setSaveStatus('saved');
+            clearFinishedDraftAfterSave();
             setTimeout(() => setSaveStatus('idle'), 2000);
           }
         } else if (!saveResult.ok) {
@@ -557,6 +610,7 @@ function App() {
           }
         } else {
           setSaveStatus('saved');
+          clearFinishedDraftAfterSave();
           setTimeout(() => setSaveStatus('idle'), 2000);
         }
       } catch (error: any) {
@@ -575,7 +629,16 @@ function App() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [allPlayers, playerSets, deletedSetIds, dataVersion, legacySetWinsByPlayerId, isLoading]);
+  }, [
+    allPlayers,
+    playerSets,
+    deletedSetIds,
+    dataVersion,
+    legacySetWinsByPlayerId,
+    gameDraftsBySetId,
+    isLoading,
+    clearFinishedDraftAfterSave,
+  ]);
 
   const handleUpdateSet = useCallback((updatedSet: PlayerSet) => {
     setPlayerSets(prev => {
@@ -691,6 +754,10 @@ function App() {
 
     const newSets = playerSets.filter(set => !deleteIdSet.has(set.id));
     setPlayerSets(newSets);
+    const remainingGameDrafts = Object.fromEntries(
+      Object.entries(gameDraftsBySetId).filter(([setId]) => !deleteIdSet.has(setId))
+    );
+    setGameDraftsBySetId(remainingGameDrafts);
 
     if (currentSetId && deleteIdSet.has(currentSetId)) {
       setCurrentSetIndex(0);
@@ -718,11 +785,15 @@ function App() {
         name: set.name,
         playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
         gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
+        winScoreLimit: set.winScoreLimit,
+        winScoreLabel: set.winScoreLabel,
+        roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
       }));
 
       const appData: AppData = {
         allPlayers,
         sets: normalizedSets,
+        gameDraftsBySetId: remainingGameDrafts,
         deletedSetIds: updatedDeletedSetIds,
         dataVersion: newDataVersion,
         legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
@@ -747,6 +818,7 @@ function App() {
         const retryAppData: AppData = {
           allPlayers: freshData.allPlayers,
           sets: freshData.sets.filter(set => !mergedDeletedSetIds.includes(set.id)),
+          gameDraftsBySetId: remainingGameDrafts,
           deletedSetIds: mergedDeletedSetIds,
           dataVersion: mergedDataVersion,
           legacySetWinsByPlayerId: freshData.legacySetWinsByPlayerId,
@@ -770,7 +842,15 @@ function App() {
       console.error('❌ [DELETE] Error during save:', error);
       alert('Failed to save deletion. Please try again.');
     }
-  }, [currentSetIndex, playerSets, deletedSetIds, dataVersion, allPlayers, legacySetWinsByPlayerId]);
+  }, [
+    currentSetIndex,
+    playerSets,
+    gameDraftsBySetId,
+    deletedSetIds,
+    dataVersion,
+    allPlayers,
+    legacySetWinsByPlayerId,
+  ]);
 
   const handleReorderSets = useCallback((newSets: PlayerSet[]) => {
     setPlayerSets(newSets);
@@ -1024,17 +1104,13 @@ function App() {
     };
     
     console.log('💾 [DIAGNOSTIC] About to call handleUpdateSet, which will trigger save effect');
+    pendingFinishedDraftSetIdRef.current = set.id;
     handleUpdateSet(updatedSet);
     
     // Increment dataVersion on mutation (adding game entry)
     setDataVersion(prev => prev + 1);
 
     setShowGameForm(false);
-    setGameDraftsBySetId((previous) => {
-      const next = { ...previous };
-      delete next[set.id];
-      return next;
-    });
   }, [currentSetIndex, playerSets, handleUpdateSet, editingGameEntryId]);
 
   const handleAdminClick = () => {
@@ -1485,8 +1561,10 @@ function App() {
           onDraftChange={
             editingGameEntryId
               ? undefined
-              : (rounds: GameRound[]) =>
-                  setGameDraftsBySetId((previous) => ({ ...previous, [currentSet.id]: rounds }))
+              : (rounds: GameRound[]) => {
+                  setGameDraftsBySetId((previous) => ({ ...previous, [currentSet.id]: rounds }));
+                  setDataVersion((previous) => previous + 1);
+                }
           }
           onSave={handleSaveGameFromMain}
           onCancel={() => {

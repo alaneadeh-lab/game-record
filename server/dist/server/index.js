@@ -51,7 +51,7 @@ const corsOptions = {
         callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     },
     methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-RECOVERY-KEY'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-RECOVERY-KEY', 'X-APP-KEY'],
     credentials: false,
 };
 // Middleware - CORS must come first
@@ -72,7 +72,7 @@ const addCorsHeaders = (req, res) => {
             /^https:\/\/[^/]+\.vercel\.app$/.test(origin)) {
             res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-RECOVERY-KEY');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-RECOVERY-KEY, X-APP-KEY');
             res.setHeader('Access-Control-Allow-Credentials', 'false');
         }
     }
@@ -305,6 +305,11 @@ app.get('/api/app-data', async (req, res) => {
                 appData = {
                     allPlayers: Array.isArray(doc.allPlayers) ? doc.allPlayers : [],
                     sets: Array.isArray(doc.sets) ? doc.sets : [],
+                    gameDraftsBySetId: doc.gameDraftsBySetId &&
+                        typeof doc.gameDraftsBySetId === 'object' &&
+                        !Array.isArray(doc.gameDraftsBySetId)
+                        ? doc.gameDraftsBySetId
+                        : undefined,
                 };
             }
             else {
@@ -312,23 +317,28 @@ app.get('/api/app-data', async (req, res) => {
                 console.log(`⚠️ No data found in expected locations, returning empty structure`);
                 appData = { allPlayers: [], sets: [] };
             }
-            // DIAGNOSTIC: Log final appData structure
+            // Migration: default winScoreLimit for sets missing it (backwards compatibility)
+            if (appData.sets && Array.isArray(appData.sets)) {
+                appData.sets = appData.sets.map((s) => {
+                    const n = s.winScoreLimit;
+                    const winScoreLimit = typeof n === 'number' && n >= 1 && n <= 9999 ? Math.floor(n) : 50;
+                    return {
+                        ...s,
+                        gameEntries: Array.isArray(s.gameEntries) ? s.gameEntries : [],
+                        winScoreLimit,
+                        winScoreLabel: s.winScoreLabel,
+                    };
+                });
+            }
+            if (!appData.legacySetWinsByPlayerId || typeof appData.legacySetWinsByPlayerId !== 'object') {
+                appData.legacySetWinsByPlayerId = undefined;
+            }
             console.log(`📊 [DIAGNOSTIC] Final appData structure:`, {
                 hasAppData: !!appData,
                 appDataKeys: Object.keys(appData),
                 playersCount: appData.allPlayers?.length || 0,
                 setsCount: appData.sets?.length || 0,
                 totalGames: appData.sets?.reduce((sum, set) => sum + (Array.isArray(set.gameEntries) ? set.gameEntries.length : 0), 0) || 0,
-                setsDetails: appData.sets?.map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    playerCount: Array.isArray(s.playerIds) ? s.playerIds.length : 0,
-                    setKeys: Object.keys(s),
-                    hasGameEntries: 'gameEntries' in s,
-                    gameEntriesType: typeof s.gameEntries,
-                    gameEntriesIsArray: Array.isArray(s.gameEntries),
-                    gameCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
-                })) || [],
             });
             res.json(appData);
         }
@@ -912,10 +922,24 @@ app.put('/api/app-data', async (req, res) => {
                 });
             }
             mergedData = {
-                allPlayers: incomingData.allPlayers, // Always use incoming players (they may have updated names/photos)
+                allPlayers: incomingData.allPlayers,
                 sets: mergedSets,
+                gameDraftsBySetId: incomingData.gameDraftsBySetId &&
+                    typeof incomingData.gameDraftsBySetId === 'object' &&
+                    !Array.isArray(incomingData.gameDraftsBySetId)
+                    ? incomingData.gameDraftsBySetId
+                    : existingData?.gameDraftsBySetId &&
+                        typeof existingData.gameDraftsBySetId === 'object' &&
+                        !Array.isArray(existingData.gameDraftsBySetId)
+                        ? existingData.gameDraftsBySetId
+                        : undefined,
                 deletedSetIds: mergedDeletedSetIds,
-                dataVersion: Math.max(incomingDataVersion, existingDataVersion), // Use highest version
+                dataVersion: Math.max(incomingDataVersion, existingDataVersion),
+                legacySetWinsByPlayerId: incomingData.legacySetWinsByPlayerId && typeof incomingData.legacySetWinsByPlayerId === 'object'
+                    ? incomingData.legacySetWinsByPlayerId
+                    : existingData?.legacySetWinsByPlayerId && typeof existingData.legacySetWinsByPlayerId === 'object'
+                        ? existingData.legacySetWinsByPlayerId
+                        : undefined,
             };
             console.log('🔄 [MERGE] Merged data:', {
                 existingSets: existingData.sets?.length || 0,
@@ -940,6 +964,9 @@ app.put('/api/app-data', async (req, res) => {
                 sets: filteredSets,
                 deletedSetIds: mergedDeletedSetIds,
                 dataVersion: incomingDataVersion,
+                legacySetWinsByPlayerId: incomingData.legacySetWinsByPlayerId && typeof incomingData.legacySetWinsByPlayerId === 'object'
+                    ? incomingData.legacySetWinsByPlayerId
+                    : undefined,
             };
             console.log('📝 [NEW] Creating new document with incoming data (filtered deleted sets)');
         }
@@ -960,6 +987,7 @@ app.put('/api/app-data', async (req, res) => {
             incomingTotalGameEntries,
             blocked: false,
             blockReason: null,
+            allowDestructive: allowDestructive || undefined,
         });
         // FORENSIC LOG: Log every write with data loss detection
         console.log('💾 [FORENSIC] MongoDB write operation:', {
@@ -984,21 +1012,11 @@ app.put('/api/app-data', async (req, res) => {
             dbName: DB_NAME,
             collectionName: COLLECTION_NAME,
             userId: userId,
-            queryFilter: { userId },
-            operation: 'updateOne (with $set) - MERGE mode',
-            isUpsert: true,
-            existingDocFound: !!existingDoc,
-            existingTotalGameEntries: existingTotalGameEntries,
-            incomingTotalGameEntries: incomingTotalGameEntries,
+            existingTotalGameEntries,
+            incomingTotalGameEntries,
+            allowDestructive,
+            accepted: true,
             mergedTotalGameEntries: mergedTotalGameEntries,
-            allPlayersCount: mergedData.allPlayers.length,
-            setsCount: mergedData.sets.length,
-            gameEntriesPerSet: mergedData.sets.map((s) => ({
-                setId: s.id,
-                setName: s.name,
-                gameEntriesCount: Array.isArray(s.gameEntries) ? s.gameEntries.length : 0,
-            })),
-            isBlankTemplate: isBlankTemplate,
             wasBlocked: false,
         });
         // Write merged data
@@ -1045,6 +1063,104 @@ app.put('/api/app-data', async (req, res) => {
         res.status(500).json({ error: 'Failed to save app data' });
     }
 });
+// Explicit delete of a single game entry (bypasses destructive write guard; always audited)
+app.delete('/api/app-data/sets/:setId/entries/:entryId', async (req, res) => {
+    try {
+        if (!db) {
+            addCorsHeaders(req, res);
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        const userId = req.query.userId || 'default';
+        const { setId, entryId } = req.params;
+        const collection = db.collection(COLLECTION_NAME);
+        const doc = await collection.findOne({ userId });
+        const existingData = doc?.data || (doc?.allPlayers || doc?.sets ? {
+            allPlayers: doc.allPlayers || [],
+            sets: doc.sets || [],
+            deletedSetIds: doc.deletedSetIds || [],
+            dataVersion: doc.dataVersion ?? 0,
+        } : null);
+        if (!existingData || !Array.isArray(existingData.sets)) {
+            addCorsHeaders(req, res);
+            return res.status(404).json({ error: 'Document or sets not found', code: 'not_found' });
+        }
+        const setIndex = existingData.sets.findIndex((s) => s.id === setId);
+        if (setIndex === -1) {
+            addCorsHeaders(req, res);
+            return res.status(404).json({ error: 'Set not found', code: 'set_not_found' });
+        }
+        const set = existingData.sets[setIndex];
+        const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+        const entryIndex = gameEntries.findIndex((e) => e.id === entryId);
+        if (entryIndex === -1) {
+            addCorsHeaders(req, res);
+            return res.status(404).json({ error: 'Entry not found', code: 'entry_not_found' });
+        }
+        const beforeCount = existingData.sets.reduce((sum, s) => sum + (Array.isArray(s.gameEntries) ? s.gameEntries.length : 0), 0);
+        const newEntries = gameEntries.filter((e) => e.id !== entryId);
+        const updatedSet = { ...set, gameEntries: newEntries };
+        const updatedSets = [...existingData.sets];
+        updatedSets[setIndex] = updatedSet;
+        const afterCount = updatedSets.reduce((sum, s) => sum + (Array.isArray(s.gameEntries) ? s.gameEntries.length : 0), 0);
+        const newDataVersion = (typeof existingData.dataVersion === 'number' ? existingData.dataVersion : 0) + 1;
+        const mergedData = {
+            allPlayers: existingData.allPlayers || [],
+            sets: updatedSets,
+            gameDraftsBySetId: existingData.gameDraftsBySetId &&
+                typeof existingData.gameDraftsBySetId === 'object' &&
+                !Array.isArray(existingData.gameDraftsBySetId)
+                ? existingData.gameDraftsBySetId
+                : undefined,
+            deletedSetIds: Array.isArray(existingData.deletedSetIds) ? existingData.deletedSetIds : [],
+            dataVersion: newDataVersion,
+            legacySetWinsByPlayerId: existingData.legacySetWinsByPlayerId && typeof existingData.legacySetWinsByPlayerId === 'object'
+                ? existingData.legacySetWinsByPlayerId
+                : undefined,
+        };
+        console.log('🗑️ [DELETE ENTRY]', {
+            userId,
+            setId,
+            entryId,
+            beforeEntryCount: beforeCount,
+            afterEntryCount: afterCount,
+            outgoingDataVersion: newDataVersion,
+        });
+        const auditCollection = db.collection(AUDIT_COLLECTION_NAME);
+        const requestOrigin = req.headers.origin || req.headers.referer || 'unknown';
+        const userAgent = req.headers['user-agent'] || 'unknown';
+        await auditCollection.insertOne({
+            ts: new Date(),
+            userId,
+            requestOrigin,
+            userAgent,
+            blockReason: 'delete_game_entry',
+            blocked: false,
+            setId,
+            entryId,
+            beforeTotalGameEntries: beforeCount,
+            afterTotalGameEntries: afterCount,
+            dataVersion: newDataVersion,
+        });
+        await collection.updateOne({ userId }, {
+            $set: {
+                userId,
+                data: mergedData,
+                updatedAt: new Date(),
+            },
+        });
+        addCorsHeaders(req, res);
+        res.json({
+            success: true,
+            totalGameEntries: afterCount,
+            dataVersion: newDataVersion,
+        });
+    }
+    catch (error) {
+        console.error('❌ Error deleting game entry:', error);
+        addCorsHeaders(req, res);
+        res.status(500).json({ error: 'Failed to delete game entry' });
+    }
+});
 // Helper function to merge AppData (restore wins, but never delete existing gameEntries)
 function mergeAppData(liveData, restoreData) {
     if (!liveData) {
@@ -1086,6 +1202,7 @@ function mergeAppData(liveData, restoreData) {
     return {
         allPlayers: mergedPlayers,
         sets: mergedSets,
+        gameDraftsBySetId: restoreData.gameDraftsBySetId ?? liveData.gameDraftsBySetId,
     };
 }
 // Helper function to check recovery key

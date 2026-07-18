@@ -347,6 +347,12 @@ app.get('/api/app-data', async (req, res) => {
         appData = {
           allPlayers: Array.isArray(doc.allPlayers) ? doc.allPlayers : [],
           sets: Array.isArray(doc.sets) ? doc.sets : [],
+          gameDraftsBySetId:
+            doc.gameDraftsBySetId &&
+            typeof doc.gameDraftsBySetId === 'object' &&
+            !Array.isArray(doc.gameDraftsBySetId)
+              ? doc.gameDraftsBySetId
+              : undefined,
         };
       } else {
         // Fallback: return empty structure
@@ -1045,6 +1051,16 @@ app.put('/api/app-data', async (req, res) => {
       mergedData = {
         allPlayers: incomingData.allPlayers,
         sets: mergedSets,
+        gameDraftsBySetId:
+          incomingData.gameDraftsBySetId &&
+          typeof incomingData.gameDraftsBySetId === 'object' &&
+          !Array.isArray(incomingData.gameDraftsBySetId)
+            ? incomingData.gameDraftsBySetId
+            : existingData?.gameDraftsBySetId &&
+                typeof existingData.gameDraftsBySetId === 'object' &&
+                !Array.isArray(existingData.gameDraftsBySetId)
+              ? existingData.gameDraftsBySetId
+              : undefined,
         deletedSetIds: mergedDeletedSetIds,
         dataVersion: Math.max(incomingDataVersion, existingDataVersion),
         legacySetWinsByPlayerId:
@@ -1243,6 +1259,12 @@ app.delete('/api/app-data/sets/:setId/entries/:entryId', async (req, res) => {
     const mergedData = {
       allPlayers: existingData.allPlayers || [],
       sets: updatedSets,
+      gameDraftsBySetId:
+        existingData.gameDraftsBySetId &&
+        typeof existingData.gameDraftsBySetId === 'object' &&
+        !Array.isArray(existingData.gameDraftsBySetId)
+          ? existingData.gameDraftsBySetId
+          : undefined,
       deletedSetIds: Array.isArray(existingData.deletedSetIds) ? existingData.deletedSetIds : [],
       dataVersion: newDataVersion,
       legacySetWinsByPlayerId:
@@ -1346,6 +1368,8 @@ function mergeAppData(liveData: AppData | null, restoreData: AppData): AppData {
   return {
     allPlayers: mergedPlayers,
     sets: mergedSets,
+    gameDraftsBySetId:
+      restoreData.gameDraftsBySetId ?? liveData.gameDraftsBySetId,
   };
 }
 

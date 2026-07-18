@@ -131,6 +131,12 @@ class MongoDBService implements IStorageService {
       let normalizedData: AppData = {
         allPlayers: playersWithTomatoes,
         sets: filteredSets,
+        gameDraftsBySetId:
+          rawData.gameDraftsBySetId &&
+          typeof rawData.gameDraftsBySetId === 'object' &&
+          !Array.isArray(rawData.gameDraftsBySetId)
+            ? rawData.gameDraftsBySetId
+            : undefined,
         deletedSetIds: deletedSetIds,
         dataVersion: typeof rawData.dataVersion === 'number' ? rawData.dataVersion : 0,
         legacySetWinsByPlayerId:
@@ -166,6 +172,12 @@ class MongoDBService implements IStorageService {
           winScoreLabel: set.winScoreLabel,
           roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
         })),
+        gameDraftsBySetId:
+          data.gameDraftsBySetId &&
+          typeof data.gameDraftsBySetId === 'object' &&
+          !Array.isArray(data.gameDraftsBySetId)
+            ? data.gameDraftsBySetId
+            : {},
         deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
         dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
         legacySetWinsByPlayerId:

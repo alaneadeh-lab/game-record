@@ -78,6 +78,12 @@ class LocalStorageService implements IStorageService {
             let loaded: AppData = {
               allPlayers: playersWithTomatoes,
               sets: filteredSets,
+              gameDraftsBySetId:
+                parsed.gameDraftsBySetId &&
+                typeof parsed.gameDraftsBySetId === 'object' &&
+                !Array.isArray(parsed.gameDraftsBySetId)
+                  ? parsed.gameDraftsBySetId
+                  : undefined,
               deletedSetIds: deletedSetIds,
               dataVersion: typeof parsed.dataVersion === 'number' ? parsed.dataVersion : 0,
               legacySetWinsByPlayerId:
@@ -121,6 +127,12 @@ class LocalStorageService implements IStorageService {
         winScoreLabel: set.winScoreLabel,
         roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
       })),
+      gameDraftsBySetId:
+        data.gameDraftsBySetId &&
+        typeof data.gameDraftsBySetId === 'object' &&
+        !Array.isArray(data.gameDraftsBySetId)
+          ? data.gameDraftsBySetId
+          : {},
       deletedSetIds: Array.isArray(data.deletedSetIds) ? data.deletedSetIds : [],
       dataVersion: typeof data.dataVersion === 'number' ? data.dataVersion : 0,
       legacySetWinsByPlayerId:
@@ -151,8 +163,8 @@ class LocalStorageService implements IStorageService {
         
         // Try to save without photos as a last resort
         const dataWithoutPhotos: AppData = {
+          ...normalizedData,
           allPlayers: normalizedData.allPlayers.map((p: any) => ({ ...p, photo: undefined })),
-          sets: normalizedData.sets,
         };
         
         try {
