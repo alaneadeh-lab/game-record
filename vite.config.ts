@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Relative base is required so Capacitor can load assets from the native WebView.
+  base: './',
   server: {
     port: 5200,
     host: true,

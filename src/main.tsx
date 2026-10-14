@@ -2,11 +2,15 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { bootstrapNativeShell } from './native/bootstrap'
+import { getApiBaseUrlOrDefault } from './config/api'
+
+void bootstrapNativeShell()
 
 // Add global helper for debugging MongoDB data
 if (typeof window !== 'undefined') {
   (window as any).checkMongoData = async () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
+    const apiUrl = getApiBaseUrlOrDefault();
     try {
       // Try diagnostic endpoint first
       let response = await fetch(`${apiUrl}/app-data/diagnostic`);
