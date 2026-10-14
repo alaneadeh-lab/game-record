@@ -16,6 +16,9 @@ import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/data
 import type { PlayerSet, Player, AppData, GameEntry, GameRound } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeRoundsPerGame } from './utils/appDataNormalize';
+import { getApiBaseUrl, getApiBaseUrlOrDefault, isCloudStorageEnabled } from './config/api';
+import { getPlatform, isNativePlatform } from './utils/platform';
+import { notifySuccess } from './native/haptics';
 
 const GAME_DRAFTS_STORAGE_KEY = `game-record-round-drafts:${import.meta.env.VITE_USER_ID || 'default'}`;
 
@@ -123,7 +126,7 @@ function App() {
     }
 
     // Check if using MongoDB and if there's localStorage data to recover
-    const useMongoDB = import.meta.env.VITE_API_URL !== undefined;
+    const useMongoDB = isCloudStorageEnabled();
     if (useMongoDB) {
       const checkResult = checkLocalStorageData();
       if (checkResult.exists && checkResult.data) {
@@ -144,8 +147,8 @@ function App() {
         setIsLoading(true);
         
         // FORENSIC LOG: One-time forensic log on app load
-        const useMongoDB = import.meta.env.VITE_API_URL !== undefined;
-        const apiUrl = import.meta.env.VITE_API_URL;
+        const useMongoDB = isCloudStorageEnabled();
+        const apiUrl = getApiBaseUrl();
         const userId = import.meta.env.VITE_USER_ID || 'default';
         
         console.log('🔍 [FORENSIC] App Load Forensic Log:', {
@@ -154,6 +157,8 @@ function App() {
           viteApiUrl: apiUrl || 'NOT DEFINED',
           viteApiUrlDefined: apiUrl !== undefined,
           userId: userId,
+          platform: getPlatform(),
+          isNative: isNativePlatform(),
         });
         
         // Scan localStorage for all keys
@@ -1110,6 +1115,7 @@ function App() {
     // Increment dataVersion on mutation (adding game entry)
     setDataVersion(prev => prev + 1);
 
+    void notifySuccess();
     setShowGameForm(false);
   }, [currentSetIndex, playerSets, handleUpdateSet, editingGameEntryId]);
 
@@ -1140,7 +1146,7 @@ function App() {
       setRecoveryStatus('uploading');
       setRecoveryError(null);
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
+      const apiUrl = getApiBaseUrlOrDefault();
       const userId = import.meta.env.VITE_USER_ID || 'default';
       
       const result = await uploadLocalStorageToMongoDB(apiUrl, userId);

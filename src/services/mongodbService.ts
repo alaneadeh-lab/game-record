@@ -1,5 +1,6 @@
 import type { AppData, PlayerSet } from '../types';
 import type { IStorageService } from './storageService';
+import { getApiBaseUrlOrDefault } from '../config/api';
 import { normalizeAppDataOnLoad, normalizeRoundsPerGame } from '../utils/appDataNormalize';
 
 /**
@@ -10,8 +11,7 @@ class MongoDBService implements IStorageService {
   private apiUrl: string;
 
   constructor() {
-    // Use environment variable or default to localhost for dev
-    this.apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5200/api';
+    this.apiUrl = getApiBaseUrlOrDefault();
   }
 
   async loadAppData(): Promise<AppData> {

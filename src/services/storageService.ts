@@ -277,13 +277,19 @@ class LocalStorageService implements IStorageService {
 // Export the currently active storage service
 // Automatically uses MongoDB if VITE_API_URL is set, otherwise uses localStorage
 import MongoDBService from './mongodbService';
+import { isCloudStorageEnabled } from '../config/api';
+import { isNativePlatform } from '../utils/platform';
 
-const useMongoDB = import.meta.env.VITE_API_URL !== undefined;
+const useMongoDB = isCloudStorageEnabled();
 
 // ENVIRONMENT CHECK: Warn if MongoDB is expected but not configured
 if (typeof window !== 'undefined') {
-  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-  if (isProduction && !useMongoDB) {
+  const isLocalWebHost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+  // Native shells intentionally support offline localStorage until an API URL is baked in.
+  const isProductionWeb = !isNativePlatform() && !isLocalWebHost;
+  if (isProductionWeb && !useMongoDB) {
     console.warn('⚠️ [ENVIRONMENT] VITE_API_URL is missing in production! Cloud save is disabled. Using local device storage only.');
     // Show visible warning banner
     setTimeout(() => {

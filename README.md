@@ -23,11 +23,22 @@ npm install
 npm run dev
 ```
 
+### iOS / Android (Capacitor)
+
+```bash
+npm install
+npm run build:mobile
+npm run cap:android   # Android Studio
+npm run cap:ios       # Xcode (macOS)
+```
+
+See `MOBILE.md` for package IDs, cloud-sync env vars, and first-time platform setup.
+
 ### With MongoDB Backend
 
 1. Set up MongoDB (see `SETUP.md`)
 2. Start backend: `cd server && npm install && npm run dev`
-3. Create `.env` file: `VITE_API_URL=http://localhost:5200/api`
+3. Create `.env` file: `VITE_API_URL=http://localhost:5201/api`
 4. Start frontend: `npm run dev`
 
 ## Tech Stack

@@ -35,3 +35,19 @@ server/.env
 
 # Game directory (if empty or temporary)
 game/
+
+# Capacitor / native build outputs
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/local.properties
+ios/App/Pods/
+ios/App/App/public/
+ios/DerivedData/
+*.keystore
+*.jks
+*.mobileprovision
+*.ipa
+*.apk
+*.aab
