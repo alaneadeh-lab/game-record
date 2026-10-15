@@ -22,6 +22,12 @@ export function normalizeSet(set: Partial<PlayerSet> & { id: string; name: strin
     winScoreLimit,
     winScoreLabel: set.winScoreLabel,
     roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
+    completed: set.completed === true,
+    completedAt: typeof set.completedAt === 'string' ? set.completedAt : undefined,
+    starAwardedToPlayerId:
+      typeof set.starAwardedToPlayerId === 'string' ? set.starAwardedToPlayerId : undefined,
+    fattAwardedToPlayerId:
+      typeof set.fattAwardedToPlayerId === 'string' ? set.fattAwardedToPlayerId : undefined,
   };
 }
 
