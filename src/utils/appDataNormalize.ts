@@ -32,6 +32,17 @@ const ASIM_PREVIOUS_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
 const JAFAR_BASELINE_WINS = 1;
 const JAFAR_PREVIOUS_BASELINE_WINS = 2;
+const ALA_NAMES = ['علاء', 'Ala', 'ala'] as const;
+const ALA_BASELINE_WINS = 1;
+
+function findPlayerByNames(
+  players: AppData['allPlayers'] | undefined,
+  names: readonly string[]
+): { id: string; name?: string } | undefined {
+  return players?.find((p: { name?: string }) =>
+    names.some((name) => p.name === name || p.name?.trim().toLowerCase() === name.toLowerCase())
+  );
+}
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time legacy baselines.
@@ -66,6 +77,14 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
       current < JAFAR_BASELINE_WINS
     ) {
       legacy = { ...legacy, [jafarPlayer.id]: JAFAR_BASELINE_WINS };
+      dataVersion = dataVersion + 1;
+    }
+  }
+  const alaPlayer = findPlayerByNames(data.allPlayers, ALA_NAMES);
+  if (alaPlayer) {
+    const current = legacy[alaPlayer.id];
+    if (current === undefined || current < ALA_BASELINE_WINS) {
+      legacy = { ...legacy, [alaPlayer.id]: ALA_BASELINE_WINS };
       dataVersion = dataVersion + 1;
     }
   }
