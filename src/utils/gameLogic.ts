@@ -1,4 +1,4 @@
-import type { Player, GameEntry, MedalType, AppData } from '../types';
+import type { Player, GameEntry, MedalType, AppData, PlayerSet } from '../types';
 
 /** Default win score limit for sets created before this field existed. */
 export const DEFAULT_WIN_SCORE_LIMIT = 50;
@@ -240,38 +240,140 @@ export function calculatePlayerStatsForSet(
   });
 }
 
+/** Podium medal points (gold 3 / silver 2 / bronze 1) accumulated across games in a set. */
+export function getPodiumPointsByPlayerId(set: PlayerSet): Record<string, number> {
+  const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
+  const podiumPoints = Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<string, number>;
+  const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+
+  for (const game of gameEntries) {
+    const rankedScores = [...game.playerScores]
+      .filter((score) => playerIds.includes(score.playerId))
+      .sort((a, b) => a.score - b.score);
+    if (rankedScores[0]) podiumPoints[rankedScores[0].playerId] += 3;
+    if (rankedScores[1]) podiumPoints[rankedScores[1].playerId] += 2;
+    if (rankedScores[2]) podiumPoints[rankedScores[2].playerId] += 1;
+  }
+
+  return podiumPoints;
+}
+
+/** True when the set is unfinished and a leader has reached the win limit. */
+export function hasReachedWinLimit(set: PlayerSet): boolean {
+  if (set.completed) return false;
+  const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+  if (gameEntries.length === 0) return false;
+  const podiumPoints = getPodiumPointsByPlayerId(set);
+  const leadingPoints = Math.max(0, ...Object.values(podiumPoints));
+  return leadingPoints >= getWinScoreLimit(set);
+}
+
+/**
+ * Star winner when the win limit is reached (or already solidified).
+ * Ties break by gold → silver → lower total game score.
+ */
+export function getStarWinnerPlayerId(set: PlayerSet, allPlayers: Player[]): string | null {
+  if (set.starAwardedToPlayerId) return set.starAwardedToPlayerId;
+
+  const podiumPoints = getPodiumPointsByPlayerId(set);
+  const leadingPoints = Math.max(0, ...Object.values(podiumPoints));
+  if (leadingPoints < getWinScoreLimit(set)) return null;
+
+  const contenderIds = (set.playerIds || []).filter((id) => podiumPoints[id] === leadingPoints);
+  if (contenderIds.length === 0) return null;
+  if (contenderIds.length === 1) return contenderIds[0];
+
+  const stats = calculatePlayerStatsForSet(set.playerIds || [], allPlayers, set.gameEntries || []);
+  const scoreTotals = getSetTotalScoresByPlayerId(set);
+  const ranked = [...contenderIds].sort((a, b) => {
+    const pa = stats.find((p) => p.id === a);
+    const pb = stats.find((p) => p.id === b);
+    if ((pb?.goldMedals ?? 0) !== (pa?.goldMedals ?? 0)) {
+      return (pb?.goldMedals ?? 0) - (pa?.goldMedals ?? 0);
+    }
+    if ((pb?.silverMedals ?? 0) !== (pa?.silverMedals ?? 0)) {
+      return (pb?.silverMedals ?? 0) - (pa?.silverMedals ?? 0);
+    }
+    return (scoreTotals[a] ?? 0) - (scoreTotals[b] ?? 0);
+  });
+  return ranked[0] ?? null;
+}
+
+/** Total raw scores per player across all games in the set (higher is worse). */
+export function getSetTotalScoresByPlayerId(set: PlayerSet): Record<string, number> {
+  const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
+  const totals = Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<string, number>;
+  for (const game of set.gameEntries || []) {
+    for (const score of game.playerScores) {
+      if (score.playerId in totals) {
+        totals[score.playerId] += score.score;
+      }
+    }
+  }
+  return totals;
+}
+
+/** Players tied for the highest (worst) total score in the set — Fatt candidates. */
+export function getHighestScorePlayerIds(set: PlayerSet): string[] {
+  const totals = getSetTotalScoresByPlayerId(set);
+  const values = Object.values(totals);
+  if (values.length === 0) return [];
+  const highest = Math.max(...values);
+  return Object.entries(totals)
+    .filter(([, score]) => score === highest)
+    .map(([id]) => id);
+}
+
 /**
  * Set wins per player across all sets.
- * Each game awards podium points (3 gold, 2 silver, 1 bronze).
- * Once the leading player reaches the set's win limit, they earn one star.
- * Derived results prevent duplicate stars after reloads or game edits.
+ * Prefers solidified awards on completed sets; falls back to derived wins for legacy sets.
  */
 export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
   const wins: Record<string, number> = {};
   const sets = Array.isArray(appData.sets) ? appData.sets : [];
   for (const set of sets) {
-    const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
-    if (gameEntries.length === 0) continue; // no games -> no winner for this set
-    const winLimit = getWinScoreLimit(set);
-    const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
-    const podiumPoints = Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<string, number>;
-
-    for (const game of gameEntries) {
-      const rankedScores = [...game.playerScores]
-        .filter((score) => playerIds.includes(score.playerId))
-        .sort((a, b) => a.score - b.score);
-      if (rankedScores[0]) podiumPoints[rankedScores[0].playerId] += 3;
-      if (rankedScores[1]) podiumPoints[rankedScores[1].playerId] += 2;
-      if (rankedScores[2]) podiumPoints[rankedScores[2].playerId] += 1;
+    if (set.starAwardedToPlayerId) {
+      wins[set.starAwardedToPlayerId] = (wins[set.starAwardedToPlayerId] ?? 0) + 1;
+      continue;
     }
 
+    // Legacy / unfinished sets: derive from podium points (pre-completion-flow data).
+    if (set.completed) continue;
+    const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+    if (gameEntries.length === 0) continue;
+    const winLimit = getWinScoreLimit(set);
+    const podiumPoints = getPodiumPointsByPlayerId(set);
     const leadingPoints = Math.max(0, ...Object.values(podiumPoints));
     if (leadingPoints < winLimit) continue;
-    const winnerIds = playerIds.filter((id) => podiumPoints[id] === leadingPoints);
+    const winnerIds = (set.playerIds || []).filter((id) => podiumPoints[id] === leadingPoints);
     for (const id of winnerIds) {
       wins[id] = (wins[id] ?? 0) + 1;
     }
   }
   return wins;
+}
+
+/** All-time Fatts from completed sets (one per set award). */
+export function getSolidifiedFattsByPlayerId(sets: PlayerSet[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const set of sets) {
+    if (!set.fattAwardedToPlayerId) continue;
+    totals[set.fattAwardedToPlayerId] = (totals[set.fattAwardedToPlayerId] ?? 0) + 1;
+  }
+  return totals;
+}
+
+export function completePlayerSet(
+  set: PlayerSet,
+  starAwardedToPlayerId: string,
+  fattAwardedToPlayerId: string
+): PlayerSet {
+  return {
+    ...set,
+    completed: true,
+    completedAt: new Date().toISOString(),
+    starAwardedToPlayerId,
+    fattAwardedToPlayerId,
+  };
 }
 

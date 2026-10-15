@@ -1,6 +1,6 @@
 import type { AppData, PlayerSet } from '../types';
 import type { IStorageService } from './storageService';
-import { normalizeAppDataOnLoad, normalizeRoundsPerGame } from '../utils/appDataNormalize';
+import { normalizeAppDataOnLoad, normalizeRoundsPerGame, normalizeSet } from '../utils/appDataNormalize';
 
 /**
  * MongoDB storage service implementation
@@ -161,17 +161,7 @@ class MongoDBService implements IStorageService {
       // Preserve deletedSetIds and dataVersion
       const normalizedData: AppData = {
         allPlayers: data.allPlayers,
-        sets: data.sets.map(set => ({
-          id: set.id,
-          name: set.name,
-          playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
-          gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
-          winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
-            ? Math.floor(set.winScoreLimit)
-            : 50,
-          winScoreLabel: set.winScoreLabel,
-          roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
-        })),
+        sets: data.sets.map((set) => normalizeSet(set)),
         gameDraftsBySetId:
           data.gameDraftsBySetId &&
           typeof data.gameDraftsBySetId === 'object' &&

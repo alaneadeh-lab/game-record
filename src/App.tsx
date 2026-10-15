@@ -6,16 +6,26 @@ import { SetManagerModal } from './components/SetManagerModal';
 import { PlayerInventory } from './components/PlayerInventory';
 import { PlayerSetSelector } from './components/PlayerSetSelector';
 import { RoundGameEntryForm } from './components/RoundGameEntryForm';
+import { SetCompletionModal } from './components/SetCompletionModal';
+import { FattTieBreakerModal } from './components/FattTieBreakerModal';
+import { WinnerCelebration } from './components/WinnerCelebration';
 import { storageService, checkLocalStorageStatus } from './services/storageService';
 import {
   calculatePlayerStatsForSet,
+  completePlayerSet,
+  getHighestScorePlayerIds,
+  getPodiumPointsByPlayerId,
+  getSetTotalScoresByPlayerId,
   getSetWinsByPlayerId,
+  getSolidifiedFattsByPlayerId,
+  getStarWinnerPlayerId,
   getWinScoreLimit,
+  hasReachedWinLimit,
 } from './utils/gameLogic';
 import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/dataRecovery';
 import type { PlayerSet, Player, AppData, GameEntry, GameRound } from './types';
 import { v4 as uuidv4 } from 'uuid';
-import { normalizeRoundsPerGame } from './utils/appDataNormalize';
+import { normalizeRoundsPerGame, normalizeSet } from './utils/appDataNormalize';
 
 const GAME_DRAFTS_STORAGE_KEY = `game-record-round-drafts:${import.meta.env.VITE_USER_ID || 'default'}`;
 
@@ -57,6 +67,12 @@ function App() {
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'found' | 'uploading' | 'success' | 'error' | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [completionPromptSetId, setCompletionPromptSetId] = useState<string | null>(null);
+  const [pendingStarWinnerId, setPendingStarWinnerId] = useState<string | null>(null);
+  const [fattTieSetId, setFattTieSetId] = useState<string | null>(null);
+  const [celebrationWinner, setCelebrationWinner] = useState<Player | null>(null);
+  /** Tracks game-count at which the user chose "Edit" so we don't re-prompt until results change. */
+  const dismissedCompletionRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     try {
@@ -446,18 +462,8 @@ function App() {
     
     const timeoutId = setTimeout(async () => {
       try {
-        // NORMALIZE: Convert playerSets to sets, ensure gameEntries and winScoreLimit present
-        const normalizedSets: PlayerSet[] = playerSets.map(set => ({
-          id: set.id,
-          name: set.name,
-          playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
-          gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
-          winScoreLimit: typeof set.winScoreLimit === 'number' && set.winScoreLimit >= 1 && set.winScoreLimit <= 9999
-            ? Math.floor(set.winScoreLimit)
-            : 50,
-          winScoreLabel: set.winScoreLabel,
-          roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
-        }));
+        // NORMALIZE: Convert playerSets to sets, preserve completion awards
+        const normalizedSets: PlayerSet[] = playerSets.map((set) => normalizeSet(set));
         
         // Create normalized AppData payload (NO playerSets field)
         const appData: AppData = {
@@ -641,10 +647,21 @@ function App() {
   ]);
 
   const handleUpdateSet = useCallback((updatedSet: PlayerSet) => {
-    setPlayerSets(prev => {
-      const updated = [...prev];
-      updated[currentSetIndex] = { ...updatedSet };
-      return updated;
+    setPlayerSets((prev) => {
+      const index = prev.findIndex((set) => set.id === updatedSet.id);
+      const targetIndex = index >= 0 ? index : currentSetIndex;
+      const existing = prev[targetIndex];
+
+      if (existing?.completed) {
+        const gamesChanged =
+          JSON.stringify(existing.gameEntries) !== JSON.stringify(updatedSet.gameEntries);
+        if (gamesChanged || !updatedSet.completed) {
+          alert('This set is complete and locked.');
+          return prev;
+        }
+      }
+
+      return prev.map((set, i) => (i === targetIndex ? { ...updatedSet } : set));
     });
   }, [currentSetIndex]);
 
@@ -652,6 +669,10 @@ function App() {
     const prevSets = playerSets;
     const set = prevSets.find(s => s.id === setId);
     if (!set || !set.gameEntries.some(e => e.id === entryId)) return;
+    if (set.completed) {
+      alert('This set is complete and locked.');
+      return;
+    }
 
     const beforeCount = set.gameEntries.length;
     setPlayerSets(prev =>
@@ -780,15 +801,7 @@ function App() {
     });
 
     try {
-      const normalizedSets: PlayerSet[] = newSets.map(set => ({
-        id: set.id,
-        name: set.name,
-        playerIds: Array.isArray(set.playerIds) ? set.playerIds : [],
-        gameEntries: Array.isArray(set.gameEntries) ? set.gameEntries : [],
-        winScoreLimit: set.winScoreLimit,
-        winScoreLabel: set.winScoreLabel,
-        roundsPerGame: normalizeRoundsPerGame(set.roundsPerGame),
-      }));
+      const normalizedSets: PlayerSet[] = newSets.map((set) => normalizeSet(set));
 
       const appData: AppData = {
         allPlayers,
@@ -906,11 +919,13 @@ function App() {
   }, [allPlayers, playerSets, legacySetWinsByPlayerId]);
 
   const allTimeFattsByPlayerId = useMemo(() => {
-    const totals = Object.fromEntries(allPlayers.map((player) => [player.id, 0])) as Record<
-      string,
-      number
-    >;
+    const totals = {
+      ...Object.fromEntries(allPlayers.map((player) => [player.id, 0])),
+      ...getSolidifiedFattsByPlayerId(playerSets),
+    } as Record<string, number>;
+    // Incomplete sets still contribute in-progress game Fatts to All Time.
     for (const set of playerSets) {
+      if (set.completed || set.fattAwardedToPlayerId) continue;
       for (const game of set.gameEntries) {
         for (const score of game.playerScores) {
           totals[score.playerId] = (totals[score.playerId] ?? 0) + (score.fatt ?? 0);
@@ -1056,24 +1071,119 @@ function App() {
     setIsSwiping(false);
   }, [touchStartX, currentSetIndex, playerSets.length, handleSwipeLeft, handleSwipeRight]);
 
+  const promptSetCompletionIfNeeded = useCallback((updatedSet: PlayerSet) => {
+    if (!hasReachedWinLimit(updatedSet)) return;
+    if (dismissedCompletionRef.current[updatedSet.id] === updatedSet.gameEntries.length) return;
+    setCompletionPromptSetId(updatedSet.id);
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || showGameForm || completionPromptSetId || fattTieSetId || celebrationWinner) {
+      return;
+    }
+    const set = playerSets[currentSetIndex];
+    if (set) promptSetCompletionIfNeeded(set);
+  }, [
+    isLoading,
+    playerSets,
+    currentSetIndex,
+    showGameForm,
+    completionPromptSetId,
+    fattTieSetId,
+    celebrationWinner,
+    promptSetCompletionIfNeeded,
+  ]);
+
+  const handleAdminUpdateSet = useCallback(
+    (updatedSet: PlayerSet) => {
+      const existing = playerSets.find((set) => set.id === updatedSet.id);
+      if (existing?.completed) {
+        alert('This set is complete and locked.');
+        return;
+      }
+      handleUpdateSet(updatedSet);
+      setDataVersion((previous) => previous + 1);
+      promptSetCompletionIfNeeded(updatedSet);
+    },
+    [playerSets, handleUpdateSet, promptSetCompletionIfNeeded]
+  );
+
+  const finalizeSetCompletion = useCallback(
+    (setId: string, starAwardedToPlayerId: string, fattAwardedToPlayerId: string) => {
+      const set = playerSets.find((entry) => entry.id === setId);
+      if (!set || set.completed) return;
+
+      const completedSet = completePlayerSet(set, starAwardedToPlayerId, fattAwardedToPlayerId);
+      handleUpdateSet(completedSet);
+      setDataVersion((previous) => previous + 1);
+      setCompletionPromptSetId(null);
+      setFattTieSetId(null);
+      setPendingStarWinnerId(null);
+      delete dismissedCompletionRef.current[setId];
+
+      const winner =
+        allPlayers.find((player) => player.id === starAwardedToPlayerId) ??
+        null;
+      setCelebrationWinner(winner);
+    },
+    [playerSets, handleUpdateSet, allPlayers]
+  );
+
+  const beginSetCompletion = useCallback(
+    (setId: string) => {
+      const set = playerSets.find((entry) => entry.id === setId);
+      if (!set) return;
+
+      const starWinnerId = getStarWinnerPlayerId(set, allPlayers);
+      if (!starWinnerId) {
+        setCompletionPromptSetId(null);
+        return;
+      }
+
+      const fattCandidates = getHighestScorePlayerIds(set);
+      if (fattCandidates.length === 0) {
+        setCompletionPromptSetId(null);
+        return;
+      }
+
+      if (fattCandidates.length === 1) {
+        finalizeSetCompletion(setId, starWinnerId, fattCandidates[0]);
+        return;
+      }
+
+      setPendingStarWinnerId(starWinnerId);
+      setCompletionPromptSetId(null);
+      setFattTieSetId(setId);
+    },
+    [playerSets, allPlayers, finalizeSetCompletion]
+  );
+
   const handleSaveGameFromMain = useCallback((entryData: Omit<GameEntry, 'id' | 'date'>) => {
     const set = playerSets[currentSetIndex];
     if (!set) return;
+    if (set.completed) {
+      alert('This set is complete and locked. No more games can be added or edited.');
+      setShowGameForm(false);
+      setEditingGameEntryId(null);
+      return;
+    }
 
     if (editingGameEntryId) {
       const existingEntry = set.gameEntries.find((entry) => entry.id === editingGameEntryId);
       if (!existingEntry) return;
-      handleUpdateSet({
+      const updatedSet = {
         ...set,
         gameEntries: set.gameEntries.map((entry) =>
           entry.id === editingGameEntryId
             ? { ...entryData, id: existingEntry.id, date: existingEntry.date }
             : entry
         ),
-      });
+      };
+      handleUpdateSet(updatedSet);
       setDataVersion((previous) => previous + 1);
       setEditingGameEntryId(null);
       setShowGameForm(false);
+      promptSetCompletionIfNeeded(updatedSet);
       return;
     }
 
@@ -1111,7 +1221,8 @@ function App() {
     setDataVersion(prev => prev + 1);
 
     setShowGameForm(false);
-  }, [currentSetIndex, playerSets, handleUpdateSet, editingGameEntryId]);
+    promptSetCompletionIfNeeded(updatedSet);
+  }, [currentSetIndex, playerSets, handleUpdateSet, editingGameEntryId, promptSetCompletionIfNeeded]);
 
   const handleAdminClick = () => {
     if (showAdmin) {
@@ -1122,11 +1233,21 @@ function App() {
   };
 
   const handleAddGameClick = () => {
+    const set = playerSets[currentSetIndex];
+    if (set?.completed) {
+      alert('This set is complete and locked.');
+      return;
+    }
     setEditingGameEntryId(null);
     setShowGameForm(true);
   };
 
   const handleEditGameClick = (entry: GameEntry) => {
+    const set = playerSets[currentSetIndex];
+    if (set?.completed) {
+      alert('This set is complete and locked.');
+      return;
+    }
     if (!entry.rounds?.length) {
       alert('This legacy game has no round details. It can still be edited from Admin.');
       return;
@@ -1263,7 +1384,7 @@ function App() {
             allPlayers={allPlayers}
             playerSets={playerSets}
             currentSetIndex={0}
-            onUpdateSet={handleUpdateSet}
+            onUpdateSet={handleAdminUpdateSet}
             onUpdateAllPlayers={handleUpdateAllPlayers}
             onClose={() => setShowAdmin(false)}
             onAddNewSet={handleCreateSet}
@@ -1402,7 +1523,7 @@ function App() {
           allPlayers={allPlayers}
           playerSets={playerSets}
           currentSetIndex={currentSetIndex}
-          onUpdateSet={handleUpdateSet}
+          onUpdateSet={handleAdminUpdateSet}
           onUpdateAllPlayers={handleUpdateAllPlayers}
           onClose={() => setShowAdmin(false)}
           onAddNewSet={handleCreateSet}
@@ -1495,12 +1616,16 @@ function App() {
                 ...player,
                 fatts:
                   player.fatts +
-                  currentGameRounds.reduce(
-                    (total, round) =>
-                      total +
-                      (round.playerScores.find((score) => score.playerId === player.id)?.fatt ?? 0),
-                    0
-                  ),
+                  (set.fattAwardedToPlayerId === player.id ? 1 : 0) +
+                  (set.completed
+                    ? 0
+                    : currentGameRounds.reduce(
+                        (total, round) =>
+                          total +
+                          (round.playerScores.find((score) => score.playerId === player.id)?.fatt ??
+                            0),
+                        0
+                      )),
               }));
               return (
                 <div
@@ -1522,17 +1647,22 @@ function App() {
                     }}
                     className="flex-1 flex flex-col relative z-10 min-h-0 overflow-y-auto"
                   >
+                    {set.completed && (
+                      <div className="sticky top-0 z-30 border-b-2 border-emerald-300 bg-emerald-600 px-3 py-2.5 text-center text-sm font-bold text-white shadow-lg">
+                        ✅ Set complete — star & Fatt locked
+                      </div>
+                    )}
                     <PlayersView 
                       players={displayedPlayers}
                       gameEntries={set.gameEntries}
                       winScoreLimit={getWinScoreLimit(set)}
                       totalStarsByPlayerId={totalStarsByPlayerId}
                       allTimeFattsByPlayerId={allTimeFattsByPlayerId}
-                      onAddGameClick={handleAddGameClick}
+                      onAddGameClick={set.completed ? undefined : handleAddGameClick}
                       currentGameRounds={currentGameRounds}
                       roundsPerGame={normalizeRoundsPerGame(set.roundsPerGame)}
-                      onCurrentGameClick={handleAddGameClick}
-                      onEditGameClick={handleEditGameClick}
+                      onCurrentGameClick={set.completed ? undefined : handleAddGameClick}
+                      onEditGameClick={set.completed ? undefined : handleEditGameClick}
                       onAdminClick={handleAdminClick}
                     />
                   </div>
@@ -1544,7 +1674,7 @@ function App() {
       )}
 
       {/* Game Entry Form Modal */}
-      {showGameForm && currentSet && !showAdmin && (
+      {showGameForm && currentSet && !showAdmin && !currentSet.completed && (
         <RoundGameEntryForm
           players={resolvePlayers(currentSet.playerIds)}
           roundsPerGame={normalizeRoundsPerGame(currentSet.roundsPerGame)}
@@ -1575,7 +1705,7 @@ function App() {
       )}
 
       {/* Floating Quick Add Game Button */}
-      {!showAdmin && !showPlayerInventory && !showGameForm && (
+      {!showAdmin && !showPlayerInventory && !showGameForm && currentSet && !currentSet.completed && (
         <button
           onClick={handleAddGameClick}
           className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full shadow-3d hover:shadow-3d-hover flex items-center justify-center button-3d animate-pulse"
@@ -1584,6 +1714,54 @@ function App() {
         >
           <Plus className="w-10 h-10" />
         </button>
+      )}
+
+      {completionPromptSetId && (() => {
+        const promptSet = playerSets.find((set) => set.id === completionPromptSetId);
+        if (!promptSet) return null;
+        const winnerId = getStarWinnerPlayerId(promptSet, allPlayers);
+        const winner = winnerId ? allPlayers.find((player) => player.id === winnerId) : null;
+        if (!winner) return null;
+        const podiumPoints = getPodiumPointsByPlayerId(promptSet)[winner.id] ?? 0;
+        return (
+          <SetCompletionModal
+            winner={winner}
+            winScoreLimit={getWinScoreLimit(promptSet)}
+            podiumPoints={podiumPoints}
+            onComplete={() => beginSetCompletion(promptSet.id)}
+            onEdit={() => {
+              dismissedCompletionRef.current[promptSet.id] = promptSet.gameEntries.length;
+              setCompletionPromptSetId(null);
+            }}
+          />
+        );
+      })()}
+
+      {fattTieSetId && pendingStarWinnerId && (() => {
+        const tieSet = playerSets.find((set) => set.id === fattTieSetId);
+        if (!tieSet) return null;
+        const tiedIds = getHighestScorePlayerIds(tieSet);
+        const tiedPlayers = tiedIds
+          .map((id) => allPlayers.find((player) => player.id === id))
+          .filter((player): player is Player => Boolean(player));
+        const scores = getSetTotalScoresByPlayerId(tieSet);
+        const tiedScores = Object.fromEntries(tiedIds.map((id) => [id, scores[id] ?? 0]));
+        return (
+          <FattTieBreakerModal
+            players={tiedPlayers}
+            scoresByPlayerId={tiedScores}
+            onSelect={(fattPlayerId) => {
+              finalizeSetCompletion(tieSet.id, pendingStarWinnerId, fattPlayerId);
+            }}
+          />
+        );
+      })()}
+
+      {celebrationWinner && (
+        <WinnerCelebration
+          winner={celebrationWinner}
+          onDone={() => setCelebrationWinner(null)}
+        />
       )}
 
     </div>

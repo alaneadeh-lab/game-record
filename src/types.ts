@@ -47,6 +47,14 @@ export interface PlayerSet {
   winScoreLabel?: string;
   /** Number of hand rounds in each game. Defaults to 5 for legacy sets. */
   roundsPerGame?: 3 | 5 | 7 | 9;
+  /** True after the winner confirms set completion at the win limit. */
+  completed?: boolean;
+  /** ISO timestamp when the set was completed. */
+  completedAt?: string;
+  /** Permanent star recipient for this set (kept even if games are later changed). */
+  starAwardedToPlayerId?: string;
+  /** Permanent Fatt recipient for this set (highest score when completed). */
+  fattAwardedToPlayerId?: string;
 }
 
 export interface AppData {

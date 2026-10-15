@@ -98,7 +98,7 @@ export const SummaryRow: React.FC<SummaryRowProps> = ({
           }`}
           aria-pressed={showAllTimeFatts}
         >
-          {showAllTimeFatts ? 'Current Set' : 'All Time'}
+          {showAllTimeFatts ? 'All Time ✓' : 'All Time'}
         </button>
       )}
       <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-center text-gray-800 flex items-center justify-center gap-2">
