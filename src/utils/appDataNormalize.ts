@@ -32,6 +32,11 @@ const ASIM_PREVIOUS_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
 const JAFAR_BASELINE_WINS = 1;
 const JAFAR_PREVIOUS_BASELINE_WINS = 2;
+/** One extra baseline star each, on top of earned set wins. */
+const ALAA_NAME = 'علاء';
+const ALAA_BASELINE_WINS = 1;
+const MALIK_NAME = 'مالك';
+const MALIK_BASELINE_WINS = 1;
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time legacy baselines.
@@ -66,6 +71,22 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
       current < JAFAR_BASELINE_WINS
     ) {
       legacy = { ...legacy, [jafarPlayer.id]: JAFAR_BASELINE_WINS };
+      dataVersion = dataVersion + 1;
+    }
+  }
+  const alaaPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === ALAA_NAME);
+  if (alaaPlayer) {
+    const current = legacy[alaaPlayer.id];
+    if (current === undefined || current < ALAA_BASELINE_WINS) {
+      legacy = { ...legacy, [alaaPlayer.id]: ALAA_BASELINE_WINS };
+      dataVersion = dataVersion + 1;
+    }
+  }
+  const malikPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === MALIK_NAME);
+  if (malikPlayer) {
+    const current = legacy[malikPlayer.id];
+    if (current === undefined || current < MALIK_BASELINE_WINS) {
+      legacy = { ...legacy, [malikPlayer.id]: MALIK_BASELINE_WINS };
       dataVersion = dataVersion + 1;
     }
   }
