@@ -32,11 +32,12 @@ const ASIM_PREVIOUS_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
 const JAFAR_BASELINE_WINS = 1;
 const JAFAR_PREVIOUS_BASELINE_WINS = 2;
-/** One extra baseline star each, on top of earned set wins. */
+/** Extra baseline stars kept in addition to earned set wins. */
 const ALAA_NAME = 'علاء';
 const ALAA_BASELINE_WINS = 1;
 const MALIK_NAME = 'مالك';
-const MALIK_BASELINE_WINS = 1;
+/** The star مالك already had, plus the one extra star. */
+const MALIK_BASELINE_WINS = 2;
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time legacy baselines.
