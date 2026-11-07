@@ -1,5 +1,5 @@
 import type { AppData, PlayerSet } from '../types';
-import { DEFAULT_WIN_SCORE_LIMIT } from './gameLogic';
+import { DEFAULT_WIN_SCORE_LIMIT, readSolidifiedSetWins, solidifySetWins } from './gameLogic';
 
 export const DEFAULT_ROUNDS_PER_GAME = 5;
 
@@ -32,6 +32,12 @@ const ASIM_PREVIOUS_BASELINE_WINS = 4;
 const JAFAR_NAME = 'جعفر';
 const JAFAR_BASELINE_WINS = 1;
 const JAFAR_PREVIOUS_BASELINE_WINS = 2;
+/** Extra baseline stars kept in addition to earned set wins. */
+const ALAA_NAME = 'علاء';
+const ALAA_BASELINE_WINS = 1;
+const MALIK_NAME = 'مالك';
+/** The star مالك already had, plus the one extra star. */
+const MALIK_BASELINE_WINS = 2;
 
 /**
  * Apply load-time migrations: default winScoreLimit on sets, and one-time legacy baselines.
@@ -69,11 +75,34 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
       dataVersion = dataVersion + 1;
     }
   }
+  const alaaPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === ALAA_NAME);
+  if (alaaPlayer) {
+    const current = legacy[alaaPlayer.id];
+    if (current === undefined || current < ALAA_BASELINE_WINS) {
+      legacy = { ...legacy, [alaaPlayer.id]: ALAA_BASELINE_WINS };
+      dataVersion = dataVersion + 1;
+    }
+  }
+  const malikPlayer = data.allPlayers?.find((p: { name?: string }) => p.name === MALIK_NAME);
+  if (malikPlayer) {
+    const current = legacy[malikPlayer.id];
+    if (current === undefined || current < MALIK_BASELINE_WINS) {
+      legacy = { ...legacy, [malikPlayer.id]: MALIK_BASELINE_WINS };
+      dataVersion = dataVersion + 1;
+    }
+  }
+
+  const previousSolidified = readSolidifiedSetWins(data.solidifiedSetWinsBySetId);
+  const solidified = solidifySetWins(previousSolidified, sets);
+  if (JSON.stringify(previousSolidified) !== JSON.stringify(solidified)) {
+    dataVersion = dataVersion + 1;
+  }
 
   return {
     ...data,
     sets,
     legacySetWinsByPlayerId: Object.keys(legacy).length ? legacy : undefined,
+    solidifiedSetWinsBySetId: Object.keys(solidified).length ? solidified : undefined,
     dataVersion,
   };
 }

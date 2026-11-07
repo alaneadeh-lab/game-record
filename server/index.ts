@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { MongoClient, ObjectId } from 'mongodb';
 import type { AppData } from '../src/types';
+import { mergeSolidifiedSetWins } from './setStars';
 
 // Load environment variables FIRST
 dotenv.config();
@@ -352,6 +353,12 @@ app.get('/api/app-data', async (req, res) => {
             typeof doc.gameDraftsBySetId === 'object' &&
             !Array.isArray(doc.gameDraftsBySetId)
               ? doc.gameDraftsBySetId
+              : undefined,
+          solidifiedSetWinsBySetId:
+            doc.solidifiedSetWinsBySetId &&
+            typeof doc.solidifiedSetWinsBySetId === 'object' &&
+            !Array.isArray(doc.solidifiedSetWinsBySetId)
+              ? doc.solidifiedSetWinsBySetId
               : undefined,
         };
       } else {
@@ -759,6 +766,19 @@ app.post('/api/app-data/upload', async (req, res) => {
     }
 
     const collection = db.collection(COLLECTION_NAME);
+    const existingDoc = await collection.findOne({ userId });
+    const existingData = existingDoc?.data || (existingDoc?.sets ? existingDoc : null);
+    const dataToSave: AppData = {
+      ...data,
+      solidifiedSetWinsBySetId: mergeSolidifiedSetWins(
+        existingData?.solidifiedSetWinsBySetId,
+        data.solidifiedSetWinsBySetId,
+        [
+          ...(Array.isArray(existingData?.sets) ? existingData.sets : []),
+          ...(Array.isArray(data.sets) ? data.sets : []),
+        ]
+      ),
+    };
     
     // Upsert (update or insert)
     await collection.updateOne(
@@ -766,7 +786,7 @@ app.post('/api/app-data/upload', async (req, res) => {
       { 
         $set: { 
           userId,
-          data,
+          data: dataToSave,
           updatedAt: new Date(),
         } 
       },
@@ -818,6 +838,8 @@ app.put('/api/app-data', async (req, res) => {
       sets: existingDoc.sets || [],
       deletedSetIds: existingDoc.deletedSetIds || [],
       dataVersion: existingDoc.dataVersion || 0,
+      legacySetWinsByPlayerId: existingDoc.legacySetWinsByPlayerId,
+      solidifiedSetWinsBySetId: existingDoc.solidifiedSetWinsBySetId,
     } : null);
     
     // STALE-SAVE PROTECTION: Reject writes with older dataVersion
@@ -1048,6 +1070,15 @@ app.put('/api/app-data', async (req, res) => {
         });
       }
       
+      const solidifiedSetWinsBySetId = mergeSolidifiedSetWins(
+        existingData?.solidifiedSetWinsBySetId,
+        incomingData.solidifiedSetWinsBySetId,
+        [
+          ...(Array.isArray(existingData?.sets) ? existingData.sets : []),
+          ...(Array.isArray(incomingData.sets) ? incomingData.sets : []),
+        ]
+      );
+
       mergedData = {
         allPlayers: incomingData.allPlayers,
         sets: mergedSets,
@@ -1069,6 +1100,7 @@ app.put('/api/app-data', async (req, res) => {
             : existingData?.legacySetWinsByPlayerId && typeof existingData.legacySetWinsByPlayerId === 'object'
               ? existingData.legacySetWinsByPlayerId
               : undefined,
+        solidifiedSetWinsBySetId,
       };
       
       console.log('🔄 [MERGE] Merged data:', {
@@ -1098,6 +1130,11 @@ app.put('/api/app-data', async (req, res) => {
           incomingData.legacySetWinsByPlayerId && typeof incomingData.legacySetWinsByPlayerId === 'object'
             ? incomingData.legacySetWinsByPlayerId
             : undefined,
+        solidifiedSetWinsBySetId: mergeSolidifiedSetWins(
+          undefined,
+          incomingData.solidifiedSetWinsBySetId,
+          incomingData.sets
+        ),
       };
       console.log('📝 [NEW] Creating new document with incoming data (filtered deleted sets)');
     }
@@ -1225,6 +1262,8 @@ app.delete('/api/app-data/sets/:setId/entries/:entryId', async (req, res) => {
       sets: doc.sets || [],
       deletedSetIds: doc.deletedSetIds || [],
       dataVersion: doc.dataVersion ?? 0,
+      legacySetWinsByPlayerId: doc.legacySetWinsByPlayerId,
+      solidifiedSetWinsBySetId: doc.solidifiedSetWinsBySetId,
     } : null);
 
     if (!existingData || !Array.isArray(existingData.sets)) {
@@ -1271,6 +1310,11 @@ app.delete('/api/app-data/sets/:setId/entries/:entryId', async (req, res) => {
         existingData.legacySetWinsByPlayerId && typeof existingData.legacySetWinsByPlayerId === 'object'
           ? existingData.legacySetWinsByPlayerId
           : undefined,
+      solidifiedSetWinsBySetId: mergeSolidifiedSetWins(
+        existingData.solidifiedSetWinsBySetId,
+        undefined,
+        existingData.sets
+      ),
     };
 
     console.log('🗑️ [DELETE ENTRY]', {
@@ -1370,6 +1414,11 @@ function mergeAppData(liveData: AppData | null, restoreData: AppData): AppData {
     sets: mergedSets,
     gameDraftsBySetId:
       restoreData.gameDraftsBySetId ?? liveData.gameDraftsBySetId,
+    solidifiedSetWinsBySetId: mergeSolidifiedSetWins(
+      liveData.solidifiedSetWinsBySetId,
+      restoreData.solidifiedSetWinsBySetId,
+      [...(liveData.sets || []), ...mergedSets]
+    ),
   };
 }
 
