@@ -90,6 +90,12 @@ class LocalStorageService implements IStorageService {
                 parsed.legacySetWinsByPlayerId && typeof parsed.legacySetWinsByPlayerId === 'object'
                   ? parsed.legacySetWinsByPlayerId
                   : undefined,
+              solidifiedSetWinsBySetId:
+                parsed.solidifiedSetWinsBySetId &&
+                typeof parsed.solidifiedSetWinsBySetId === 'object' &&
+                !Array.isArray(parsed.solidifiedSetWinsBySetId)
+                  ? parsed.solidifiedSetWinsBySetId
+                  : undefined,
             };
             loaded = normalizeAppDataOnLoad(loaded);
             return loaded;
@@ -138,6 +144,12 @@ class LocalStorageService implements IStorageService {
       legacySetWinsByPlayerId:
         data.legacySetWinsByPlayerId && typeof data.legacySetWinsByPlayerId === 'object'
           ? data.legacySetWinsByPlayerId
+          : undefined,
+      solidifiedSetWinsBySetId:
+        data.solidifiedSetWinsBySetId &&
+        typeof data.solidifiedSetWinsBySetId === 'object' &&
+        !Array.isArray(data.solidifiedSetWinsBySetId)
+          ? data.solidifiedSetWinsBySetId
           : undefined,
     };
     

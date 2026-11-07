@@ -11,6 +11,7 @@ import {
   calculatePlayerStatsForSet,
   getSetWinsByPlayerId,
   getWinScoreLimit,
+  solidifySetWins,
 } from './utils/gameLogic';
 import { checkLocalStorageData, uploadLocalStorageToMongoDB } from './utils/dataRecovery';
 import type { PlayerSet, Player, AppData, GameEntry, GameRound } from './types';
@@ -41,6 +42,7 @@ function App() {
   const [deletedSetIds, setDeletedSetIds] = useState<string[]>([]);
   const [dataVersion, setDataVersion] = useState<number>(1);
   const [legacySetWinsByPlayerId, setLegacySetWinsByPlayerId] = useState<Record<string, number>>({});
+  const [solidifiedSetWinsBySetId, setSolidifiedSetWinsBySetId] = useState<Record<string, string[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -324,6 +326,13 @@ function App() {
               ? appData.legacySetWinsByPlayerId
               : {}
           );
+          setSolidifiedSetWinsBySetId(
+            appData.solidifiedSetWinsBySetId &&
+            typeof appData.solidifiedSetWinsBySetId === 'object' &&
+            !Array.isArray(appData.solidifiedSetWinsBySetId)
+              ? appData.solidifiedSetWinsBySetId
+              : {}
+          );
           setGameDraftsBySetId((localDrafts) => ({
             ...(appData.gameDraftsBySetId ?? {}),
             ...localDrafts,
@@ -436,6 +445,15 @@ function App() {
     loadData();
   }, []);
 
+  // Lock a star as soon as a set reaches its win limit, before any later delete can drop it.
+  useEffect(() => {
+    if (isLoading) return;
+    const locked = solidifySetWins(solidifiedSetWinsBySetId, playerSets);
+    if (JSON.stringify(locked) !== JSON.stringify(solidifiedSetWinsBySetId)) {
+      setSolidifiedSetWinsBySetId(locked);
+    }
+  }, [isLoading, playerSets, solidifiedSetWinsBySetId]);
+
   // Save data whenever allPlayers or playerSets changes (with debouncing)
   useEffect(() => {
     if (isLoading) return;
@@ -460,6 +478,7 @@ function App() {
         }));
         
         // Create normalized AppData payload (NO playerSets field)
+        const lockedStars = solidifySetWins(solidifiedSetWinsBySetId, normalizedSets);
         const appData: AppData = {
           allPlayers,
           sets: normalizedSets,
@@ -467,6 +486,7 @@ function App() {
           deletedSetIds: deletedSetIds,
           dataVersion: dataVersion,
           legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
+          solidifiedSetWinsBySetId: Object.keys(lockedStars).length ? lockedStars : undefined,
         };
         
         // VALIDATION: Ensure gameEntries are included in payload
@@ -570,6 +590,14 @@ function App() {
           setDeletedSetIds(mergedDeletedSetIds);
           setDataVersion(mergedDataVersion);
           setLegacySetWinsByPlayerId(freshData.legacySetWinsByPlayerId ?? {});
+          const lockedStars = solidifySetWins(
+            {
+              ...(freshData.solidifiedSetWinsBySetId ?? {}),
+              ...solidifiedSetWinsBySetId,
+            },
+            [...(freshData.sets || []), ...playerSets]
+          );
+          setSolidifiedSetWinsBySetId(lockedStars);
           
           // Retry save with merged data
           const retryAppData: AppData = {
@@ -578,6 +606,8 @@ function App() {
             gameDraftsBySetId,
             deletedSetIds: mergedDeletedSetIds,
             dataVersion: mergedDataVersion,
+            legacySetWinsByPlayerId: freshData.legacySetWinsByPlayerId,
+            solidifiedSetWinsBySetId: Object.keys(lockedStars).length ? lockedStars : undefined,
           };
           
           const retryResult = await storageService.saveAppData(retryAppData);
@@ -635,6 +665,7 @@ function App() {
     deletedSetIds,
     dataVersion,
     legacySetWinsByPlayerId,
+    solidifiedSetWinsBySetId,
     gameDraftsBySetId,
     isLoading,
     clearFinishedDraftAfterSave,
@@ -654,6 +685,8 @@ function App() {
     if (!set || !set.gameEntries.some(e => e.id === entryId)) return;
 
     const beforeCount = set.gameEntries.length;
+    const lockedStars = solidifySetWins(solidifiedSetWinsBySetId, prevSets);
+    setSolidifiedSetWinsBySetId(lockedStars);
     setPlayerSets(prev =>
       prev.map(s =>
         s.id !== setId
@@ -681,7 +714,7 @@ function App() {
         setDataVersion(result.dataVersion);
       }
     }
-  }, [playerSets]);
+  }, [playerSets, solidifiedSetWinsBySetId]);
 
   // Helper to resolve players from IDs
   const resolvePlayers = useCallback((playerIds: string[]): Player[] => {
@@ -752,6 +785,8 @@ function App() {
     const deleteIdSet = new Set(idsToDelete);
     const currentSetId = playerSets[currentSetIndex]?.id;
 
+    const lockedStars = solidifySetWins(solidifiedSetWinsBySetId, playerSets);
+    setSolidifiedSetWinsBySetId(lockedStars);
     const newSets = playerSets.filter(set => !deleteIdSet.has(set.id));
     setPlayerSets(newSets);
     const remainingGameDrafts = Object.fromEntries(
@@ -797,6 +832,7 @@ function App() {
         deletedSetIds: updatedDeletedSetIds,
         dataVersion: newDataVersion,
         legacySetWinsByPlayerId: Object.keys(legacySetWinsByPlayerId).length ? legacySetWinsByPlayerId : undefined,
+        solidifiedSetWinsBySetId: Object.keys(lockedStars).length ? lockedStars : undefined,
       };
 
       const saveResult = await storageService.saveAppData(appData);
@@ -814,6 +850,14 @@ function App() {
         setDeletedSetIds(mergedDeletedSetIds);
         setDataVersion(mergedDataVersion);
         setLegacySetWinsByPlayerId(freshData.legacySetWinsByPlayerId ?? {});
+        const retryLockedStars = solidifySetWins(
+          {
+            ...(freshData.solidifiedSetWinsBySetId ?? {}),
+            ...lockedStars,
+          },
+          [...(freshData.sets || []), ...playerSets]
+        );
+        setSolidifiedSetWinsBySetId(retryLockedStars);
 
         const retryAppData: AppData = {
           allPlayers: freshData.allPlayers,
@@ -822,6 +866,7 @@ function App() {
           deletedSetIds: mergedDeletedSetIds,
           dataVersion: mergedDataVersion,
           legacySetWinsByPlayerId: freshData.legacySetWinsByPlayerId,
+          solidifiedSetWinsBySetId: Object.keys(retryLockedStars).length ? retryLockedStars : undefined,
         };
 
         const retryResult = await storageService.saveAppData(retryAppData);
@@ -850,6 +895,7 @@ function App() {
     dataVersion,
     allPlayers,
     legacySetWinsByPlayerId,
+    solidifiedSetWinsBySetId,
   ]);
 
   const handleReorderSets = useCallback((newSets: PlayerSet[]) => {
@@ -897,13 +943,14 @@ function App() {
     const computedSetWins = getSetWinsByPlayerId({
       allPlayers,
       sets: playerSets,
+      solidifiedSetWinsBySetId,
     });
     const totals = { ...legacySetWinsByPlayerId };
     for (const [playerId, wins] of Object.entries(computedSetWins)) {
       totals[playerId] = (totals[playerId] ?? 0) + wins;
     }
     return totals;
-  }, [allPlayers, playerSets, legacySetWinsByPlayerId]);
+  }, [allPlayers, playerSets, legacySetWinsByPlayerId, solidifiedSetWinsBySetId]);
 
   const allTimeFattsByPlayerId = useMemo(() => {
     const totals = Object.fromEntries(allPlayers.map((player) => [player.id, 0])) as Record<

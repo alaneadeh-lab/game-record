@@ -58,6 +58,11 @@ export interface AppData {
   dataVersion?: number; // Monotonically increasing version for stale-save protection
   /** Manual baseline set wins (e.g. pre-app history). Applied once; never double-applied. */
   legacySetWinsByPlayerId?: Record<string, number>;
+  /**
+   * Winner ids locked the first time a set reaches its win limit, keyed by set id.
+   * Entries stay after the set or its games are deleted, and are never rewritten.
+   */
+  solidifiedSetWinsBySetId?: Record<string, string[]>;
 }
 
 export type MedalType = 'gold' | 'silver' | 'bronze';

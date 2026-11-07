@@ -240,38 +240,83 @@ export function calculatePlayerStatsForSet(
   });
 }
 
+type SetForStars = {
+  id?: string;
+  playerIds?: string[];
+  gameEntries?: { playerScores?: { playerId: string; score: number }[] }[];
+  winScoreLimit?: number;
+};
+
 /**
- * Set wins per player across all sets.
+ * Winner ids for a set that has reached its win limit.
+ * Returns null while the set is still short of the limit.
  * Each game awards podium points (3 gold, 2 silver, 1 bronze).
- * Once the leading player reaches the set's win limit, they earn one star.
- * Derived results prevent duplicate stars after reloads or game edits.
  */
-export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
+export function getCompletedSetWinnerIds(set: SetForStars): string[] | null {
+  const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
+  if (gameEntries.length === 0) return null;
+  const winLimit = getWinScoreLimit(set);
+  const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
+  const podiumPoints = Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<string, number>;
+
+  for (const game of gameEntries) {
+    const scores = Array.isArray(game?.playerScores) ? game.playerScores : [];
+    const rankedScores = [...scores]
+      .filter((score) => playerIds.includes(score.playerId))
+      .sort((a, b) => a.score - b.score);
+    if (rankedScores[0]) podiumPoints[rankedScores[0].playerId] += 3;
+    if (rankedScores[1]) podiumPoints[rankedScores[1].playerId] += 2;
+    if (rankedScores[2]) podiumPoints[rankedScores[2].playerId] += 1;
+  }
+
+  const leadingPoints = Math.max(0, ...Object.values(podiumPoints));
+  if (leadingPoints < winLimit) return null;
+  const winnerIds = playerIds.filter((id) => podiumPoints[id] === leadingPoints);
+  return winnerIds.length > 0 ? winnerIds : null;
+}
+
+/** Keep only valid locked winner lists. Does not drop known set ids. */
+export function readSolidifiedSetWins(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const solidified: Record<string, string[]> = {};
+  for (const [setId, winners] of Object.entries(value)) {
+    if (!setId || !Array.isArray(winners)) continue;
+    const winnerIds = [...new Set(winners.filter((id): id is string => typeof id === 'string' && id.length > 0))];
+    if (winnerIds.length > 0) solidified[setId] = winnerIds;
+  }
+  return solidified;
+}
+
+/**
+ * Lock a star the first time a set reaches its win limit.
+ * Existing entries are kept as-is, including entries whose set is no longer present.
+ */
+export function solidifySetWins(existing: unknown, sets: SetForStars[] | undefined): Record<string, string[]> {
+  const solidified = readSolidifiedSetWins(existing);
+  for (const set of Array.isArray(sets) ? sets : []) {
+    if (!set?.id || solidified[set.id]) continue;
+    const winnerIds = getCompletedSetWinnerIds(set);
+    if (winnerIds) solidified[set.id] = winnerIds;
+  }
+  return solidified;
+}
+
+export function countSolidifiedSetWins(solidified: Record<string, string[]>): Record<string, number> {
   const wins: Record<string, number> = {};
-  const sets = Array.isArray(appData.sets) ? appData.sets : [];
-  for (const set of sets) {
-    const gameEntries = Array.isArray(set.gameEntries) ? set.gameEntries : [];
-    if (gameEntries.length === 0) continue; // no games -> no winner for this set
-    const winLimit = getWinScoreLimit(set);
-    const playerIds = Array.isArray(set.playerIds) ? set.playerIds : [];
-    const podiumPoints = Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<string, number>;
-
-    for (const game of gameEntries) {
-      const rankedScores = [...game.playerScores]
-        .filter((score) => playerIds.includes(score.playerId))
-        .sort((a, b) => a.score - b.score);
-      if (rankedScores[0]) podiumPoints[rankedScores[0].playerId] += 3;
-      if (rankedScores[1]) podiumPoints[rankedScores[1].playerId] += 2;
-      if (rankedScores[2]) podiumPoints[rankedScores[2].playerId] += 1;
-    }
-
-    const leadingPoints = Math.max(0, ...Object.values(podiumPoints));
-    if (leadingPoints < winLimit) continue;
-    const winnerIds = playerIds.filter((id) => podiumPoints[id] === leadingPoints);
+  for (const winnerIds of Object.values(solidified)) {
     for (const id of winnerIds) {
       wins[id] = (wins[id] ?? 0) + 1;
     }
   }
   return wins;
+}
+
+/**
+ * Set wins per player.
+ * A star is locked the first time a set reaches its win limit and is never removed,
+ * including when that set or its games are deleted.
+ */
+export function getSetWinsByPlayerId(appData: AppData): Record<string, number> {
+  return countSolidifiedSetWins(solidifySetWins(appData.solidifiedSetWinsBySetId, appData.sets));
 }
 

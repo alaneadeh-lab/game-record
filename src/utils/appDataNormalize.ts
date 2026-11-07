@@ -1,5 +1,5 @@
 import type { AppData, PlayerSet } from '../types';
-import { DEFAULT_WIN_SCORE_LIMIT } from './gameLogic';
+import { DEFAULT_WIN_SCORE_LIMIT, readSolidifiedSetWins, solidifySetWins } from './gameLogic';
 
 export const DEFAULT_ROUNDS_PER_GAME = 5;
 
@@ -92,10 +92,17 @@ export function normalizeAppDataOnLoad(data: AppData): AppData {
     }
   }
 
+  const previousSolidified = readSolidifiedSetWins(data.solidifiedSetWinsBySetId);
+  const solidified = solidifySetWins(previousSolidified, sets);
+  if (JSON.stringify(previousSolidified) !== JSON.stringify(solidified)) {
+    dataVersion = dataVersion + 1;
+  }
+
   return {
     ...data,
     sets,
     legacySetWinsByPlayerId: Object.keys(legacy).length ? legacy : undefined,
+    solidifiedSetWinsBySetId: Object.keys(solidified).length ? solidified : undefined,
     dataVersion,
   };
 }

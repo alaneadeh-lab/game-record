@@ -143,6 +143,12 @@ class MongoDBService implements IStorageService {
           rawData.legacySetWinsByPlayerId && typeof rawData.legacySetWinsByPlayerId === 'object'
             ? rawData.legacySetWinsByPlayerId
             : undefined,
+        solidifiedSetWinsBySetId:
+          rawData.solidifiedSetWinsBySetId &&
+          typeof rawData.solidifiedSetWinsBySetId === 'object' &&
+          !Array.isArray(rawData.solidifiedSetWinsBySetId)
+            ? rawData.solidifiedSetWinsBySetId
+            : undefined,
       };
       normalizedData = normalizeAppDataOnLoad(normalizedData);
       return normalizedData;
@@ -183,6 +189,12 @@ class MongoDBService implements IStorageService {
         legacySetWinsByPlayerId:
           data.legacySetWinsByPlayerId && typeof data.legacySetWinsByPlayerId === 'object'
             ? data.legacySetWinsByPlayerId
+            : undefined,
+        solidifiedSetWinsBySetId:
+          data.solidifiedSetWinsBySetId &&
+          typeof data.solidifiedSetWinsBySetId === 'object' &&
+          !Array.isArray(data.solidifiedSetWinsBySetId)
+            ? data.solidifiedSetWinsBySetId
             : undefined,
       };
       
